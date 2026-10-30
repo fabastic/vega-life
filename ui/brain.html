@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vega Brain Map</title>
+<script>try{const t=localStorage.getItem('vega-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<script src="/fx.js" defer></script>
+<style>
+html,body{height:100%;margin:0}body{font-size:13px;display:flex;flex-direction:column}
+.topbar{position:relative}
+.sub{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:7px 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 85%,transparent);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:3px;border:1px solid var(--line2);cursor:pointer;user-select:none;font:12px var(--sans);background:var(--bar)}
+.chip:hover{border-color:var(--acc)}.chip.off{opacity:.38}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 6px currentColor}
+#wrap{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;min-width:0;background:radial-gradient(ellipse at 50% 45%,color-mix(in srgb,var(--acc) 7%,transparent),transparent 65%)}
+canvas{width:100%;height:100%;display:block;cursor:grab}
+#tools{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:5px}#tools button{width:34px;height:32px;padding:0}
+aside{width:390px;max-width:46%;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:14px 16px}
+aside h3{font-size:15px}
+.kind{display:inline-block;font:600 10.5px var(--mono);padding:2px 9px;border-radius:3px;color:#061018;margin-right:6px;text-transform:uppercase;letter-spacing:.06em}
+:root[data-theme="light"] .kind{color:#fff}
+.sec{margin:14px 0 4px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.row{display:grid;grid-template-columns:16px 1fr 74px;gap:8px;align-items:center;padding:6px 4px;border-top:1px solid var(--line);cursor:pointer;border-radius:6px}.row:hover{background:color-mix(in srgb,var(--acc) 7%,transparent)}
+.row .w{height:5px;border-radius:3px;background:var(--bar);overflow:hidden;display:block}.row .w i{display:block;height:100%}
+.row small{color:var(--muted)}.props{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;margin-top:8px}
+.props div{display:flex;gap:8px;padding:1px 0}.props b{color:var(--muted);font-weight:500;min-width:90px}
+#tip{position:absolute;pointer-events:none;background:var(--panel-solid);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-size:12px;max-width:320px;display:none;box-shadow:var(--shadow)}
+#note{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--muted);max-width:min(560px,70%);background:color-mix(in srgb,var(--bg) 82%,transparent);border:1px solid var(--line);padding:6px 9px;border-radius:9px}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:20px}
+@media (max-width:760px){#wrap{flex-direction:column}aside{width:100%;max-width:none;height:42%;border-left:0;border-top:1px solid var(--line)}.topbar,.sub{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" title="Vega Life">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"><path d="M6 9L16 16L6 23M16 16L26 9M16 16L26 23M6 9L26 9M6 23L26 23"/></g>
+      <circle cx="16" cy="16" r="4" fill="var(--acc)"/><circle cx="6" cy="9" r="2.4" fill="var(--acc2)"/><circle cx="6" cy="23" r="2.4" fill="var(--acc2)"/><circle cx="26" cy="9" r="2.4" fill="var(--acc)"/><circle cx="26" cy="23" r="2.4" fill="var(--acc)"/></svg>
+    <span><b>VEGA</b><small>brain map</small></span>
+  </a>
+  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button class="on">Brain map</button></nav>
+  <select id="run" title="Which life"></select>
+  <select id="view" title="Overview groups repeats; every moment shows each one"><option value="overview">Overview (grouped)</option><option value="detail">Every moment</option></select>
+  <label class="muted">age <input id="from" type="number" min="0" max="110" style="width:56px" placeholder="0"> to <input id="to" type="number" min="0" max="110" style="width:56px" placeholder="end"></label>
+  <input id="q" placeholder="Search: bullied, Maya, sleep…" style="width:190px">
+  <button class="primary" id="load">Show</button>
+  <span id="stats" class="muted mono" style="font-size:11.5px"></span>
+  <span class="spacer"></span>
+  <button class="icon" id="theme" title="Light or dark">◐</button>
+</header>
+<div class="sub"><span class="muted">Show:</span><span id="kinds"></span>
+  <label class="chip" title="Each moment's link to its life stage"><input type="checkbox" id="timeline"> timeline links</label>
+  <label class="muted">nodes in detail view <input id="n" type="number" min="20" max="600" value="250" style="width:60px"></label></div>
+<div id="wrap">
+  <div id="stage"><canvas id="cv"></canvas><div id="tip"></div><div id="empty"></div>
+    <div id="tools"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button><button id="fit" title="Fit everything (f)">⤢</button><button id="lab" title="More or fewer labels">Aa</button></div>
+    <div id="note">Drag to turn, right-drag to move, scroll to zoom. Lines show what led to what in his simulated life. Solid: exact, recorded where it happened. Dashed: estimated slow influence of a factor, its average push per month (estimates interact, so they don't add up). Red: pushes something down. Nothing outside the simulation is here.</div></div>
+  <aside id="side"></aside>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TOGGLE=['factor','state','trait','situation','choice','consequence','event','memory','person','skill','milestone'];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const color=k=>css('--k-'+k)||css('--muted');
+const cv=$('cv'),ctx=cv.getContext('2d');
+let G={nodes:[],edges:[]},byId=new Map(),sel=null,hover=null,alpha=0,focus=null,mode='overview',labelMore=false;
+const params=new URLSearchParams(location.search);
+const off=new Set(['memory','choice']);           // overview shows the structure; moments appear on select or trace
+
+// ---------------------------------------------------------------- a 3D brain: his life runs front (birth) to back (old age)
+// Our own renderer: a perspective camera, depth-sorted points and lines on a 2D canvas. No libraries.
+//   top        what he faced and chose (situations, choices)        like the frontal planning regions
+//   one side   what happened to him and what it led to               events, consequences
+//   lower      what he kept and who was there                        memories, people
+//   base       skills and milestones                                 like a cerebellum
+//   core       him and his states and traits
+//   shell      the world around him (factors), as an outer cortex
+const K=1.9;                                   // spread: room between neurons so the wiring shows
+const AGE_X=a=>(270-Math.min(1080,a)/1080*560)*K;
+const SLOT={situation:[120,95],choice:[100,150],event:[50,-120],consequence:[10,-165],memory:[-45,75],person:[-70,-170],
+  skill:[-150,45],milestone:[-150,-45],stage:[245,0]};
+const SHELL={x:430*K,y:300*K,z:340*K};
+function ageOf(n){return n.age!=null?n.age:(n.props&&n.props.first_age!=null?n.props.first_age:null)}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0)/4294967296}
+function spiral(i,n){const k=i+0.5,phi=Math.acos(1-2*k/n),th=Math.PI*(1+Math.sqrt(5))*k;return [Math.cos(th)*Math.sin(phi),Math.cos(phi),Math.sin(th)*Math.sin(phi)]}
+let ORDER={};
+function anchor(n){
+  if(n.kind==='self')return [0,0,0];
+  if(n.kind==='stage'){const i=['infancy','childhood','adolescence','early_adult','middle_adult','late_adult'].indexOf(n.id.split(':')[1]);return [AGE_X([18,90,186,330,552,800][i]||0),SLOT.stage[0],0]}
+  if(n.kind==='state'||n.kind==='trait'){const [i,t]=ORDER[n.id]||[0,1],[a,b,c]=spiral(i,t),r=(n.kind==='trait'?80:150)*K;return [a*r,b*r*0.8,c*r]}
+  if(n.kind==='factor'){const [i,t]=ORDER[n.id]||[0,1],[a,b,c]=spiral(i,t);return [a*SHELL.x,b*SHELL.y,c*SHELL.z]}
+  const s=SLOT[n.kind];if(!s)return null;const a=ageOf(n),j=hash(n.id)-0.5;
+  return [a!=null?AGE_X(a)+(hash(n.id+'x')-0.5)*60:j*400*K,(s[0]+j*150)*K,(s[1]+(hash(n.id+'z')-0.5)*220)*K]}
+
+function chips(counts={}){ $('kinds').innerHTML=TOGGLE.map(k=>`<span class="chip ${off.has(k)?'off':''}" data-k="${k}"><span class="dot" style="background:${color(k)}"></span>${k}${counts[k]!=null?` <span class="muted">${counts[k]}</span>`:''}</span>`).join('');
+  document.querySelectorAll('[data-k]').forEach(c=>c.onclick=()=>{const k=c.dataset.k;off.has(k)?off.delete(k):off.add(k);load()})}
+chips();
+async function api(p){const r=await fetch(p);return r.json()}
+async function runs(){const rs=await api('/api/runs');const want=params.get('run');
+  $('run').innerHTML=rs.map(r=>`<option ${r.name===want?'selected':''}>${esc(r.name)}</option>`).join('')}
+function query(){const kinds=TOGGLE.filter(k=>!off.has(k)).concat(['self','stage']).join(',');
+  const p=new URLSearchParams({run:$('run').value,n:$('n').value||250,kinds,q:$('q').value});
+  if($('from').value!=='')p.set('from',$('from').value);if($('to').value!=='')p.set('to',$('to').value);return p}
+async function load(){const ov=$('view').value==='overview';const d=await api((ov?'/api/brain/overview?':'/api/brain/top?')+query());
+  if(d.none){empty(d.message);setGraph({nodes:[],edges:[]});$('stats').textContent='';return}
+  if(ov){const keep=new Set(d.nodes.filter(n=>!off.has(n.kind)).map(n=>n.id));d.nodes=d.nodes.filter(n=>keep.has(n.id));d.edges=d.edges.filter(e=>keep.has(e.src)&&keep.has(e.dst))}
+  const s=d.stats;$('stats').textContent=`${s.nodes.toLocaleString()} nodes · ${s.edges.toLocaleString()} links (${s.estimated} estimated) · showing ${d.nodes.length}`;
+  const counts={};for(const n of d.nodes)counts[n.kind]=(counts[n.kind]||0)+1;chips(counts);
+  empty(d.nodes.length?'':'Nothing to show for these settings.');mode='overview';focus=null;sel=null;hover=null;setGraph(d);intro()}
+function empty(msg){$('empty').style.display=msg?'flex':'none';$('empty').textContent=msg||''}
+function intro(){$('side').innerHTML=`<h3 style="margin:0 0 6px">His brain map</h3><p class="muted">Everything in his life and what led to what, as a brain you can turn. His life runs from the front (birth) to the back (old age). On top: what he faced and chose. To one side: what happened to him and what it led to. Lower down: his memories and his people; at the base, his skills. He and his states are at the core; the world around him is the outer shell.</p>
+ <p><b>Drag</b> to turn it, <b>right-drag</b> (or shift-drag) to move, <b>scroll</b> to zoom, <b>click</b> anything to see what led to it and what it led to.</p>
+ <div class="props"><div><b>solid line</b>exact: recorded where it happened</div><div><b>dashed line</b>estimated slow influence</div><div><b>red</b>pushes down</div><div><b>bigger, nearer</b>more connected</div></div>`}
+$('toLives').onclick=()=>{location.href='/'};$('toLive').onclick=()=>{location.href='/?run='+encodeURIComponent($('run').value)};
+$('theme').onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('vega-theme',t)}catch(e){}chips()};
+$('load').onclick=load;$('q').onkeydown=e=>{if(e.key==='Enter')load()};$('run').onchange=load;$('view').onchange=load;$('timeline').onchange=()=>{};
+
+function setGraph(d){
+  const old=new Map(G.nodes.map(n=>[n.id,n]));
+  const st=d.nodes.filter(n=>n.kind==='state'),tr=d.nodes.filter(n=>n.kind==='trait'),fa=d.nodes.filter(n=>n.kind==='factor');ORDER={};
+  for(const L of [st,tr,fa])L.forEach((n,i)=>ORDER[n.id]=[i,L.length]);
+  G={nodes:d.nodes.map(n=>{const o=old.get(n.id);if(o)return Object.assign(n,{x:o.x,y:o.y,z:o.z,vx:0,vy:0,vz:0});
+    const a=anchor(n)||[(Math.random()-.5)*300,(Math.random()-.5)*200,(Math.random()-.5)*200];
+    return Object.assign(n,{x:a[0]+(Math.random()-.5)*30,y:a[1]+(Math.random()-.5)*30,z:a[2]+(Math.random()-.5)*30,vx:0,vy:0,vz:0})}),edges:[]};
+  byId=new Map(G.nodes.map(n=>[n.id,n]));
+  G.edges=d.edges.filter(e=>byId.has(e.src)&&byId.has(e.dst)).map(e=>Object.assign(e,{s:byId.get(e.src),t:byId.get(e.dst)}));
+  for(const n of G.nodes){n._imp=0;n._a=anchor(n)}for(const e of G.edges){if(e.relation==='during')continue;const w=Math.min(3,Math.abs(e.weight))+.3;e.s._imp+=w;e.t._imp+=w}
+  alpha=1;fitSoon=true}
+let fitSoon=false;
+
+function tick(){
+  if(alpha<0.004)return;const N=G.nodes,E=G.edges;
+  for(let i=0;i<N.length;i++){const a=N[i];for(let j=i+1;j<N.length;j++){const b=N[j];let dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z,d2=dx*dx+dy*dy+dz*dz+0.01;if(d2>90000)continue;const f=1400/d2;dx*=f;dy*=f;dz*=f;a.vx+=dx;a.vy+=dy;a.vz+=dz;b.vx-=dx;b.vy-=dy;b.vz-=dz}}
+  for(const e of E){if(e.relation==='during')continue;const dx=e.t.x-e.s.x,dy=e.t.y-e.s.y,dz=e.t.z-e.s.z,d=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.01,f=(d-170)*0.0018;
+    e.s.vx+=dx/d*f;e.s.vy+=dy/d*f;e.s.vz+=dz/d*f;e.t.vx-=dx/d*f;e.t.vy-=dy/d*f;e.t.vz-=dz/d*f}
+  for(const n of N){const a=n._a;if(n.kind==='self'||n.kind==='stage'){[n.x,n.y,n.z]=a;continue}
+    if(a){const k=n.kind==='factor'?0.05:0.018;n.vx+=(a[0]-n.x)*k;n.vy+=(a[1]-n.y)*k;n.vz+=(a[2]-n.z)*k}
+    n.x+=n.vx*alpha;n.y+=n.vy*alpha;n.z+=n.vz*alpha;n.vx*=0.6;n.vy*=0.6;n.vz*=0.6}
+  alpha*=0.975;if(fitSoon&&alpha<0.35){fitView();fitSoon=false}}
+
+// ---- camera
+const STILL=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let drag=null,moved=false;
+let cam={yaw:0.55,pitch:0.32,dist:2600,tx:0,ty:0,tz:0},camT=null,idleAt=performance.now();
+function fitView(){if(!G.nodes.length){camT={...cam,tx:0,ty:0,tz:0,dist:2600};return}let cx=0,cy=0,cz=0;for(const n of G.nodes){cx+=n.x;cy+=n.y;cz+=n.z}
+  const N=G.nodes.length;cx/=N;cy/=N;cz/=N;let R=420*K;for(const n of G.nodes)R=Math.max(R,Math.hypot(n.x-cx,n.y-cy,n.z-cz));
+  camT={...cam,tx:cx,ty:cy,tz:cz,dist:Math.max(700,R*2.3)}}
+function centerOn(n){camT={...cam,tx:n.x,ty:n.y,tz:n.z,dist:Math.min(cam.dist,650)}}
+let SW=0,SH=0,FOC=1;
+function proj(x,y,z){x-=cam.tx;y-=cam.ty;z-=cam.tz;const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  const x1=cy*x+sy*z,z1=-sy*x+cy*z,y1=cp*y-sp*z1,z2=sp*y+cp*z1,d=cam.dist+z2;if(d<40)return null;const f=FOC/d;return [SW/2+x1*f,SH/2-y1*f,f,d]}
+const rad=n=>n.kind==='self'?16:n.kind==='stage'?7:3.2+Math.sqrt(n._imp||0)*1.5;
+const STAGE_SHORT={infancy:'Infancy',childhood:'Childhood',adolescence:'Adolescence',early_adult:'Early adult',middle_adult:'Middle adult',late_adult:'Late adult'};
+const short=n=>n.kind==='stage'?STAGE_SHORT[n.id.split(':')[1]]||n.label:(n.kind!=='self'&&ageOf(n)!=null&&!(n.props&&n.props.grouped)?`${Math.floor(ageOf(n)/12)}y · `:'')+(n.label.length>40?n.label.slice(0,38)+'…':n.label);
+
+// the shell: an ellipsoid wireframe with the midline fissure, so the space reads as a brain
+function shell(){const lines=[];const S={x:470*K,y:330*K,z:370*K};
+  for(let la=-60;la<=60;la+=30){const pts=[];for(let lo=0;lo<=360;lo+=10){const a=lo*Math.PI/180,b=la*Math.PI/180;pts.push([S.x*Math.cos(b)*Math.cos(a),S.y*Math.sin(b),S.z*Math.cos(b)*Math.sin(a)])}lines.push(pts)}
+  for(let lo=0;lo<180;lo+=30){const pts=[];for(let la=-90;la<=90;la+=10){const a=lo*Math.PI/180,b=la*Math.PI/180;pts.push([S.x*Math.cos(b)*Math.cos(a),S.y*Math.sin(b),S.z*Math.cos(b)*Math.sin(a)])}lines.push(pts)}
+  const mid=[];for(let t=-170;t<=170;t+=10){const a=t*Math.PI/180;mid.push([S.x*Math.cos(a),S.y*Math.abs(Math.sin(a))*0.98+4,0])}lines.push(mid);return lines}
+const SHELL_LINES=shell();
+
+function draw(){
+  if(camT){for(const k of ['yaw','pitch','dist','tx','ty','tz'])cam[k]+=(camT[k]-cam[k])*0.12;
+    if(Math.abs(camT.dist-cam.dist)<1&&Math.abs(camT.tx-cam.tx)<0.5&&Math.abs(camT.ty-cam.ty)<0.5&&Math.abs(camT.tz-cam.tz)<0.5)camT=null}
+  if(!STILL&&!sel&&!drag&&performance.now()-idleAt>3500&&!document.hidden){cam.yaw+=0.0016;if(camT)camT.yaw=cam.yaw}
+  const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==w*dpr||cv.height!==h*dpr){cv.width=w*dpr;cv.height=h*dpr}
+  SW=w;SH=h;FOC=Math.min(w,h)*1.25;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  const acc2=css('--acc2'),line=css('--line2'),dark=document.documentElement.dataset.theme!=='light',SANS=css('--sans');
+  // the shell
+  ctx.lineWidth=0.7;for(const L of SHELL_LINES){ctx.beginPath();let on=false;for(const p of L){const q=proj(p[0],p[1],p[2]);if(!q){on=false;continue}
+    on?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);on=true}ctx.strokeStyle=L===SHELL_LINES[SHELL_LINES.length-1]?acc2:css('--acc');ctx.globalAlpha=L===SHELL_LINES[SHELL_LINES.length-1]?0.45:0.13;ctx.stroke()}
+  ctx.globalAlpha=0.6;ctx.fillStyle=css('--muted');ctx.font='600 10.5px '+css('--mono');
+  for(const [t,p] of [['BIRTH',[AGE_X(0)+40,0,0]],['OLD AGE',[AGE_X(1080)-40,0,0]]]){const q=proj(...p);if(q)ctx.fillText(t,q[0]-18,q[1])}
+  ctx.globalAlpha=1;
+  // project everything once
+  for(const n of G.nodes){n._p=proj(n.x,n.y,n.z)}
+  let dmin=1e9,dmax=-1e9;for(const n of G.nodes)if(n._p){dmin=Math.min(dmin,n._p[3]);dmax=Math.max(dmax,n._p[3])}
+  const fog=d=>dmax>dmin?1-0.65*(d-dmin)/(dmax-dmin):1;
+  const near=sel||hover,nb=new Set();if(near){nb.add(near.id);for(const e of G.edges){if(e.s===near)nb.add(e.t.id);if(e.t===near)nb.add(e.s.id)}}
+  const showT=$('timeline').checked;
+  for(const e of G.edges){if(e.relation==='during'&&!showT&&!(near&&(e.s===near||e.t===near)))continue;const a=e.s._p,b=e.t._p;if(!a||!b)continue;
+    const on=!near||e.s===near||e.t===near;
+    ctx.globalAlpha=(on?(e.relation==='during'?0.12:Math.min(0.85,0.3+Math.abs(e.weight)*1.4)):0.04)*fog((a[3]+b[3])/2);
+    ctx.strokeStyle=e.weight<0?css('--neg'):(on&&near?color(e.s.kind):css('--muted'));ctx.lineWidth=(on&&near?1.6:0.8)*Math.min(1.6,Math.max(0.6,(a[2]+b[2])*1.4));
+    ctx.setLineDash(e.basis==='estimated'?[4,4]:[]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+    if(on&&near){const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),r=rad(e.t)*b[2]*1.5+2,px=b[0]-Math.cos(ang)*r,py=b[1]-Math.sin(ang)*r;
+      ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-7*Math.cos(ang-0.45),py-7*Math.sin(ang-0.45));ctx.lineTo(px-7*Math.cos(ang+0.45),py-7*Math.sin(ang+0.45));ctx.closePath();ctx.fillStyle=ctx.strokeStyle;ctx.fill()}}
+  ctx.setLineDash([]);
+  const order=G.nodes.filter(n=>n._p).sort((a,b)=>b._p[3]-a._p[3]);              // far first
+  const ranked=[...G.nodes].sort((a,b)=>(b._imp||0)-(a._imp||0)),labelled=new Set(ranked.slice(0,labelMore?120:14).map(n=>n.id));
+  for(const n of order){const [x,y,f,d]=n._p,r=Math.max(1.4,rad(n)*f*1.25),fade=fog(d);ctx.globalAlpha=(!near||nb.has(n.id)?1:0.1)*fade;
+    if(dark&&near&&nb.has(n.id)){const a0=ctx.globalAlpha;ctx.globalAlpha=a0*0.22;ctx.fillStyle=color(n.kind);ctx.beginPath();ctx.arc(x,y,r*2.2,0,7);ctx.fill();ctx.globalAlpha=a0}
+    const g=ctx.createRadialGradient(x-r*0.35,y-r*0.35,r*0.1,x,y,r);g.addColorStop(0,'#ffffff');g.addColorStop(0.25,color(n.kind));g.addColorStop(1,color(n.kind));
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+    if(n.props&&n.props.grouped){ctx.strokeStyle=css('--panel-solid');ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(x,y,r*0.55,0,7);ctx.stroke()}
+    if(n===sel||n.id===focus){ctx.strokeStyle=css('--ink');ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r+3,0,7);ctx.stroke()}
+    const always=n.kind==='self'||n.kind==='stage';
+    if(always||labelled.has(n.id)||n===sel||n===hover||(near&&nb.has(n.id))){ctx.font=(always?'600 12px ':'11px ')+SANS;const t=short(n),tw=ctx.measureText(t).width;
+      ctx.globalAlpha=((!near||nb.has(n.id))?0.8:0.08)*fade;ctx.fillStyle=css('--bg');ctx.fillRect(x+r+2,y-7,tw+4,14);ctx.globalAlpha=((!near||nb.has(n.id))?1:0.1)*fade;ctx.fillStyle=css('--ink');ctx.fillText(t,x+r+4,y+4)}}
+  ctx.globalAlpha=1;
+}
+function loop(){tick();draw();requestAnimationFrame(loop)}loop();
+
+function pick(ev){const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;let best=null,bd=1e9;
+  for(const n of G.nodes){if(!n._p)continue;const [x,y,f,d]=n._p,rr=Math.max(6,rad(n)*f*1.5+4),dd=(x-mx)**2+(y-my)**2;if(dd<rr*rr&&d<bd){bd=d;best=n}}return best}
+cv.oncontextmenu=e=>e.preventDefault();
+cv.onmousedown=ev=>{moved=false;camT=null;idleAt=performance.now();drag={x:ev.clientX,y:ev.clientY,pan:ev.button===2||ev.shiftKey,cam:{...cam}};cv.style.cursor='grabbing'};
+window.onmousemove=ev=>{const r=cv.getBoundingClientRect();
+  if(drag){const dx=ev.clientX-drag.x,dy=ev.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;idleAt=performance.now();
+    if(drag.pan){const s=cam.dist/FOC,cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw);cam.tx=drag.cam.tx-dx*s*cy;cam.tz=drag.cam.tz-dx*s*sy;cam.ty=drag.cam.ty+dy*s}
+    else{cam.yaw=drag.cam.yaw+dx*0.006;cam.pitch=Math.max(-1.35,Math.min(1.35,drag.cam.pitch+dy*0.006))}}
+  else if(ev.target===cv){hover=pick(ev);const t=$('tip');if(hover){const ins=G.edges.filter(e=>e.t===hover&&e.relation!=='during').length,outs=G.edges.filter(e=>e.s===hover&&e.relation!=='during').length;
+      t.style.display='block';t.style.left=Math.min(ev.clientX-r.left+14,r.width-330)+'px';t.style.top=(ev.clientY-r.top+14)+'px';
+      t.innerHTML=`<b>${esc(hover.label)}</b><br><span class="muted">${hover.kind}${ageOf(hover)!=null?' · age '+(ageOf(hover)/12).toFixed(1):''} · ${ins} in, ${outs} out</span>`}else t.style.display='none'}};
+window.onmouseup=ev=>{if(drag&&!moved){const n=pick(ev);if(n)select(n);else{sel=null;intro()}}drag=null;cv.style.cursor='grab'};
+cv.onwheel=ev=>{ev.preventDefault();camT=null;idleAt=performance.now();cam.dist=Math.max(200,Math.min(5000,cam.dist*(ev.deltaY<0?0.88:1.14)))};
+$('zin').onclick=()=>{camT={...cam,dist:Math.max(200,cam.dist/1.3)}};$('zout').onclick=()=>{camT={...cam,dist:Math.min(5000,cam.dist*1.3)}};
+$('fit').onclick=fitView;$('lab').onclick=()=>{labelMore=!labelMore};
+window.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Escape'){sel=null;intro()}if(e.key==='f')fitView()};
+
+// ---------------------------------------------------------------- side panel
+function rows(list,arrow,nameOf){const max=Math.max(1e-9,...list.map(e=>Math.abs(e.weight)));
+  return list.map(e=>{const other=arrow==='←'?e.src:e.dst,col=e.weight<0?css('--neg'):color(kindOf(other));
+    return `<div class="row" data-go="${esc(other)}"><span>${arrow}</span><span>${esc(nameOf(other))}<br><small>${esc(e.relation)} · ${e.basis}${e.props&&e.props.stage?' · '+esc(e.props.stage.replace('_',' ')):''}${e.props&&e.props.n>1?' · '+e.props.n+' times':''}${e.props&&e.props.distorted?' · misremembered':''}</small></span>
+      <span title="${(+e.weight).toFixed(4)}"><span class="w"><i style="width:${Math.max(4,Math.abs(e.weight)/max*100)}%;background:${col}"></i></span><small>${(+e.weight).toFixed(3)}</small></span></div>`}).join('')}
+const kindOf=id=>(byId.get(id)||{}).kind||id.split(':')[0];
+function head(n){return `<div><span class="kind" style="background:${color(n.kind)}">${n.kind}${n.props&&n.props.grouped?' · grouped':''}</span><span class="muted">${ageOf(n)!=null?'age '+(ageOf(n)/12).toFixed(1):''}</span></div><h3 style="margin:6px 0">${esc(n.label)}</h3>`}
+function props(n){const p=Object.entries(n.props||{}).filter(([k,v])=>v!=null&&v!==''&&!['grouped','first_age','last_age'].includes(k));
+  return p.length?`<div class="props">${p.map(([k,v])=>`<div><b>${esc(k.replace(/_/g,' '))}</b><span>${esc(typeof v==='object'?JSON.stringify(v):v)}</span></div>`).join('')}</div>`:''}
+function wireRows(){document.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>goTo(el.dataset.go));
+  document.querySelectorAll('[data-trace]').forEach(b=>b.onclick=()=>trace(b.dataset.id,b.dataset.trace));if($('back'))$('back').onclick=load}
+async function goTo(id){let m=byId.get(id);
+  if(!m){const nd=await api(`/api/brain/node?run=${encodeURIComponent($('run').value)}&id=${encodeURIComponent(id)}`);if(!nd.node)return;
+    setGraph({nodes:[...G.nodes,nd.node],edges:[...G.edges,...nd.incoming,...nd.outgoing]});m=byId.get(id);if(sel){m.x=sel.x+60;m.y=sel.y+40;m.z=sel.z}}
+  select(m);centerOn(m)}
+function buttons(id){return `<p style="display:flex;gap:6px;flex-wrap:wrap"><button data-trace="up" data-id="${esc(id)}">Trace what led here</button><button data-trace="down" data-id="${esc(id)}">Trace what it led to</button>${mode!=='overview'?'<button id="back">Back to the map</button>':''}</p>`}
+function selectGroup(n){const ins=G.edges.filter(e=>e.t===n&&e.relation!=='during'),outs=G.edges.filter(e=>e.s===n&&e.relation!=='during'),base=n.label.replace(/ \(x\d+\)$/,'');
+  const nm=id=>(byId.get(id)||{}).label||id;
+  $('side').innerHTML=head(n)+`<div class="muted">${n.props.count} times, ages ${(n.props.first_age/12).toFixed(1)} to ${(n.props.last_age/12).toFixed(1)}</div><p><button id="each">Open each moment</button>${mode!=='overview'?' <button id="back">Back to the map</button>':''}</p>
+   <div class="sec">What led here</div>${rows(ins,'←',nm)||'<p class="muted">nothing recorded</p>'}<div class="sec">What it led to</div>${rows(outs,'→',nm)||'<p class="muted">nothing recorded</p>'}`;
+  $('each').onclick=()=>{$('view').value='detail';$('q').value=base.replace(/#/g,'').trim();off.delete('choice');off.delete('consequence');off.delete('event');load()};wireRows()}
+async function select(n){sel=n;if(n.props&&n.props.grouped)return selectGroup(n);
+  const d=await api(`/api/brain/node?run=${encodeURIComponent($('run').value)}&id=${encodeURIComponent(n.id)}`);
+  const nm=id=>d.names[id]||id,ins=d.incoming.filter(e=>e.relation!=='during').sort((a,b)=>Math.abs(b.weight)-Math.abs(a.weight)),outs=d.outgoing.filter(e=>e.relation!=='during').sort((a,b)=>Math.abs(b.weight)-Math.abs(a.weight));
+  $('side').innerHTML=head(n)+buttons(n.id)+props(n)+`<div class="sec">What led here (${ins.length})</div>${rows(ins.slice(0,80),'←',nm)||'<p class="muted">nothing recorded</p>'}
+   <div class="sec">What it led to (${outs.length})</div>${rows(outs.slice(0,80),'→',nm)||'<p class="muted">nothing recorded</p>'}`;wireRows()}
+async function trace(id,dir){const d=await api(`/api/brain/trace?run=${encodeURIComponent($('run').value)}&id=${encodeURIComponent(id)}&dir=${dir}&depth=5`);
+  mode='trace';focus=id;setGraph(d);const n=byId.get(id);if(n){select(n)}
+  $('stats').textContent=`${dir==='up'?'What led to':'What came of'} “${(n||{}).label||id}”: ${d.nodes.length} nodes`}
+
+runs().then(async()=>{await load();const f=params.get('focus');if(f){setTimeout(()=>trace(f,'up'),300)}});window.onresize=()=>fitView();
+</script>
+</body>
+</html>
