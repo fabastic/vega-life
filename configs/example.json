@@ -1,0 +1,14 @@
+{
+  "seed": 1,
+  "profile": "laptop",
+  "max_age_years": 90,
+  "factors": {
+    "caregiver_phubbing": 0.8,
+    "grandparent_caregivers": 0.9,
+    "frictionless_tech": 0.7
+  },
+  "timeline": [
+    {"age_years": 40, "key": "skill_obsolescence", "value": 0.9}
+  ],
+  "corpus_dir": ""
+}
