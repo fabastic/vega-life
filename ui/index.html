@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vega Life</title>
+<script>try{const t=localStorage.getItem('vega-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<script src="/fx.js" defer></script>
+<style>
+#bgNet{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.topbar,#banner,main{position:relative;z-index:1}
+main{padding:18px;max-width:1440px;margin:0 auto}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.grid+.grid,.card+.grid,.grid+.card{margin-top:14px}
+.wide{grid-column:span 2}
+.stat{display:flex;gap:10px 22px;flex-wrap:wrap}
+.stat div b{display:block;font:600 17px/1.3 var(--mono);color:var(--ink)}
+#now div:nth-child(2) b{font:600 14px/1.6 var(--sans)}
+.stat div span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.stat label{font-size:12px;color:var(--muted)}
+.bars .row{display:grid;grid-template-columns:136px 1fr 44px;gap:10px;align-items:center;font-size:12px;margin:4px 0}
+.bars .row span:last-child{font-family:var(--mono);color:var(--muted);text-align:right}
+.bars .t{height:6px;background:var(--bar);border-radius:6px;overflow:hidden}
+.bars .t i{display:block;height:100%;background:var(--grad);border-radius:6px;box-shadow:0 0 8px color-mix(in srgb,var(--acc) 50%,transparent)}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--bg2);border:1px solid var(--line);padding:10px;border-radius:9px;margin:0;font:12px/1.5 var(--mono);max-height:230px;overflow:auto;color:var(--ink)}
+.item{border-top:1px solid var(--line);padding:10px 0}.item:first-child{border-top:0;padding-top:0}
+.phone{width:min(260px,100%);margin:6px auto 0;border:1px solid var(--line2);border-radius:26px;padding:14px 10px 18px;background:var(--panel-solid,var(--panel))}
+.phone .scr{height:300px;overflow-y:auto;border-radius:14px;background:var(--bg);padding:6px}
+.phone .post{border:1px solid var(--line);border-radius:10px;padding:7px 9px;margin-bottom:6px;font-size:12.5px;line-height:1.35}
+.phone .post small{display:flex;justify-content:space-between;color:var(--muted);font:500 10px var(--mono);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+.phone .post.bait{border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.phone .notch{width:70px;height:6px;border-radius:3px;background:var(--line2);margin:0 auto 9px}
+.bond-pat{font:500 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.tag{display:inline-block;font:500 11px var(--mono);padding:1px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--muted);margin-right:6px}
+.resp{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.resp span{font:12px var(--mono);padding:2px 7px;border-radius:6px;background:var(--bar);border:1px solid var(--line)}
+.resp span.lived{border-color:var(--acc);box-shadow:var(--glow)}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+canvas.chart{width:100%;height:160px;display:block}
+.legend{font-size:11px;color:var(--muted);margin-top:6px}
+.key{display:inline-flex;align-items:center;gap:5px;margin-right:12px}.key i{width:14px;height:3px;border-radius:2px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+td,th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border-top:0}
+tr:hover td{background:color-mix(in srgb,var(--acc) 4%,transparent)}
+.factor{display:grid;grid-template-columns:minmax(170px,1.1fr) 1.6fr 220px 170px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.stepper{display:inline-flex;align-items:center;gap:8px}.stepper button{width:30px;height:28px;padding:0;font-size:15px}.stepper b{font:600 16px var(--mono);min-width:22px;text-align:center}
+.choices{display:inline-flex;flex-wrap:wrap;gap:4px}.choices button{padding:4px 8px;font-size:10.5px}.choices button.on{background:var(--acc);color:#03070d;border-color:var(--acc)}
+.factor .fv{font-size:12px;line-height:1.3}
+.factor .fv{font:12px var(--mono);color:var(--muted)}.factor.moved .fv{color:var(--acc)}.factor.moved b::after{content:" · moved";font:500 10px var(--mono);color:var(--acc);letter-spacing:.06em}
+.factor .rs{width:26px;height:24px;font-size:13px;visibility:hidden}.factor.moved .rs{visibility:visible}
+.famrow{display:grid;grid-template-columns:120px 110px 92px 92px 92px 92px 30px;gap:8px;align-items:end;margin:6px 0;font-size:12px;color:var(--muted)}
+.famrow input,.famrow select{width:100%}.famrow.dead input[data-f="name"]{text-decoration:line-through}
+@media (max-width:700px){.famrow{grid-template-columns:1fr 1fr}}
+.factor small{color:var(--muted)}
+.log div{font-size:12.5px;padding:5px 0;border-top:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+.log .age{font:11px var(--mono);color:var(--muted);min-width:64px}
+.log .x{font:600 10.5px var(--mono);color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);border-radius:3px;padding:0 6px;margin-left:auto}
+.growth{display:flex;gap:3px;margin-top:10px}
+.growth div{flex:1;height:22px;border-radius:5px;background:var(--bar);border:1px solid var(--line);font:10px var(--mono);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.growth div.done{background:var(--grad);color:var(--bg);border-color:transparent;box-shadow:0 0 10px color-mix(in srgb,var(--acc) 35%,transparent)}
+.growth div.cap{opacity:.3}
+#netWrap{position:relative;margin:4px -4px 0}
+#netViz{width:100%;height:190px;display:block}
+.hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+.now-line{font-size:15.5px;line-height:1.45;margin:0 0 10px;padding-left:12px;border-left:2px solid var(--acc)}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+/* two ways to read the same life: plain words (simple) or every number (lab) */
+body[data-view="simple"] .lab{display:none!important}
+body[data-view="lab"] .simple{display:none!important}
+.brainWrap{display:grid;grid-template-columns:1fr;gap:10px}
+#brainLegend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px}
+#brainSvg{width:min(100%,520px);height:auto;overflow:visible;margin:0 auto;display:block}
+#brainSvg .reg{fill:var(--c);fill-opacity:calc(.10 + var(--v,0)*.78);transition:fill-opacity .8s;cursor:help}
+#brainSvg .reg:hover{fill-opacity:.9}
+#brainSvg .bo{stroke:url(#irid);stroke-width:2;fill:none;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--acc2) 40%,transparent));pointer-events:none}
+#brainSvg .gyri{stroke-dasharray:3 9;animation:flow 7s linear infinite;opacity:.8}
+@media (prefers-reduced-motion:reduce){#brainSvg .gyri,#ring .gyri{animation:none}}
+/* hover a part: a crosshair, a dotted leader and a coordinate readout, like a lab instrument */
+#readout{pointer-events:none;opacity:0;transition:opacity .15s}#readout.on{opacity:1}
+#roRing{fill:none;stroke:var(--ink);stroke-width:1}#roDot{fill:var(--ink)}
+#roLine{fill:none;stroke:var(--ink);stroke-width:1;stroke-dasharray:1.5 3}
+#roName{font:600 10px var(--mono);letter-spacing:.14em;fill:var(--ink);text-transform:uppercase}
+#roXY{font:9px var(--mono);fill:var(--muted);letter-spacing:.06em}
+#brainLegend .lg.hot{color:var(--ink)}#brainLegend .lg.hot i{box-shadow:0 0 0 2px var(--panel-solid),0 0 0 3px var(--c)}
+#brainLegend .lg{display:grid;grid-template-columns:10px 1fr 34px;gap:8px;align-items:center;font-size:12.5px;margin:7px 0}
+#brainLegend .lg i{width:10px;height:10px;border-radius:2px;background:var(--c)}
+#brainLegend .lg small{display:block;color:var(--muted);font-size:11px;line-height:1.2}
+#brainLegend .lg span{font:11px var(--mono);color:var(--muted);text-align:right}
+.meter{display:grid;grid-template-columns:96px 1fr 84px;gap:10px;align-items:center;font-size:13px;margin:7px 0}
+.meter .t{height:7px;background:var(--bar);border-radius:4px;overflow:hidden}.meter .t i{display:block;height:100%;background:var(--grad);border-radius:4px;transition:width .6s}
+.meter em{font-style:normal;font:11px var(--mono);color:var(--muted);text-align:right}
+#story p{margin:0 0 10px;font-size:14.5px;line-height:1.55}
+.choice{padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}.choice:first-child{border-top:0;padding-top:0}
+.choice b{font-weight:600}.choice .age{font:11px var(--mono);color:var(--muted);margin-right:8px}
+
+/* his people, chemistry, work */
+.ppl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;padding:5px 0;border-top:1px solid var(--line)}.ppl:first-child{border-top:0}
+.ppl small{color:var(--muted);font-size:11.5px}.ppl.gone{opacity:.55}.ppl .st{font:11px var(--mono);color:var(--muted);text-align:right}
+.chem .row{display:grid;grid-template-columns:92px 1fr 34px;gap:8px;align-items:center;font-size:12.5px;margin:5px 0}
+.chem .t{height:7px;background:var(--bar);border-radius:4px;overflow:hidden}.chem .t i{display:block;height:100%;border-radius:4px;transition:width .6s}
+.chem small{grid-column:1/-1;color:var(--muted);font-size:11px;margin-top:-3px}
+/* talking to him */
+#chatLog{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow:auto;padding:4px 2px 10px}
+.msg{max-width:78%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.msg.you{align-self:flex-end;background:color-mix(in srgb,var(--acc) 18%,var(--panel-solid));border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);border-bottom-right-radius:3px}
+.msg.him{align-self:flex-start;background:var(--bg2);border:1px solid var(--line2);border-bottom-left-radius:3px}
+.msg.him.wait{color:var(--muted);font-style:italic}
+.msg .meta{display:block;margin-top:6px;font:10.5px var(--mono);color:var(--muted);letter-spacing:.03em}
+.msg .meta a{color:var(--acc2)}
+.chatbar{display:flex;gap:8px;margin-top:6px}.chatbar input{flex:1;font-size:14px;padding:8px 10px}
+/* a fly-through of his network: scroll to move the camera down the layers */
+#hero{height:230vh;position:relative;margin:-18px -18px 8px;background:linear-gradient(160deg,color-mix(in srgb,#3fe0d0 26%,transparent),color-mix(in srgb,#b58cff 30%,transparent) 50%,color-mix(in srgb,#ff7ac8 24%,transparent))}
+#heroIn{position:sticky;top:60px;height:calc(100vh - 60px);overflow:hidden;background:radial-gradient(ellipse at 50% 60%,color-mix(in srgb,var(--acc) 10%,transparent),transparent 70%) var(--bg)}
+#heroCv{position:absolute;inset:0;width:100%;height:100%}
+#heroH{position:absolute;left:6vw;top:18%;margin:0;font:600 clamp(34px,8vw,104px)/.98 var(--mono);letter-spacing:.02em;color:var(--ink);text-transform:uppercase;transition:opacity .2s,transform .2s;pointer-events:none}
+#heroH span{display:block}#heroH span:nth-child(2){padding-left:4vw;color:var(--acc)}
+#heroP,#heroQ{position:absolute;right:6vw;bottom:16%;max-width:300px;margin:0;font:12px/1.7 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);pointer-events:none;transition:opacity .2s}
+#heroQ{left:6vw;right:auto;bottom:auto;top:40%;max-width:420px;font-size:15px;color:var(--ink);opacity:0}
+#heroCue{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);font:11px var(--mono);letter-spacing:.3em;color:var(--muted);animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{50%{transform:translate(-50%,6px)}}
+#ring{position:absolute;right:3vw;top:14%;width:min(46vw,440px);height:auto;margin:0;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 16px color-mix(in srgb,var(--acc2) 45%,transparent))}
+#ring use{stroke:url(#irid);stroke-width:2.4;fill:none}
+#ring .gyri{stroke-dasharray:3 9;animation:flow 6s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-48}}
+/* the loader: a counter in the corner of a black screen */
+#boot{position:fixed;inset:0;z-index:100;background:#0a0908;display:flex;align-items:center;justify-content:center;font:13px var(--mono);letter-spacing:.3em;color:var(--acc);transition:opacity .5s}
+#boot.gone{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){#heroCue{animation:none}#boot{display:none}}
+@media (max-width:700px){#hero{margin:-12px -16px 8px}#ring{left:70%;top:62%}}
+#banner{background:color-mix(in srgb,var(--bad) 85%,#000);color:#fff;padding:9px 18px;font-size:13px}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+@media (max-width:900px){.hero{grid-template-columns:1fr}.wide{grid-column:auto}}
+@media (max-width:700px){main{padding:12px 16px}.factor{grid-template-columns:1fr}.bars .row{grid-template-columns:110px 1fr 40px}.topbar{padding:10px 16px}}
+</style>
+</head>
+<body>
+<div id="boot" aria-hidden="true">//0</div>
+<!-- the human brain, side view, facing left: shapes shared by the intro and the live view -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="irid" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3fe0d0"/><stop offset=".5" stop-color="#b58cff"/><stop offset="1" stop-color="#ff7ac8"/></linearGradient>
+  <clipPath id="cerebrumClip"><path id="cerebrumPath" d="M62,172 C44,118 84,52 168,40 C246,30 330,52 352,118 C362,150 346,180 318,190 C300,196 282,192 268,198 C252,206 236,196 218,200 C196,206 176,214 150,206 C120,198 110,206 92,198 C74,192 64,184 62,172 Z"/></clipPath>
+  <symbol id="brainOutline" viewBox="0 0 400 290"><g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M62,172 C44,118 84,52 168,40 C246,30 330,52 352,118 C362,150 346,180 318,190 C300,196 282,192 268,198 C252,206 236,196 218,200 C196,206 176,214 150,206 C120,198 110,206 92,198 C74,192 64,184 62,172 Z"/>
+    <path d="M258,198 C280,192 330,196 345,214 C352,232 322,258 290,255 C268,252 252,234 258,198 Z"/>
+    <path d="M222,200 C228,225 232,250 236,276 L252,276 C250,248 246,222 244,200"/>
+    <g class="gyri" stroke-width=".9"><path d="M90,120 C110,95 140,100 150,125 S190,140 205,110"/><path d="M120,70 C150,60 175,80 165,105"/><path d="M200,60 C230,50 260,70 250,95 S290,110 310,85"/>
+      <path d="M110,160 C135,150 150,170 175,162 S215,150 235,168"/><path d="M250,140 C270,125 300,135 315,160"/><path d="M280,70 C300,80 320,100 330,125"/><path d="M75,140 C85,130 95,135 100,150"/><path d="M180,175 C200,165 225,180 245,172"/>
+      <path d="M268,214 C290,208 320,210 340,220"/><path d="M266,228 C290,222 320,226 336,236"/><path d="M272,242 C292,238 312,240 326,248"/></g>
+    <path d="M130,178 C170,162 215,152 262,170" stroke-width="1.4"/><path d="M190,42 C185,80 200,110 192,150" stroke-width="1.2"/></g></symbol>
+</defs></svg>
+<canvas id="bgNet" aria-hidden="true"></canvas>
+<header class="topbar">
+  <a class="brand" href="/" title="Vega Life">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><g stroke="currentColor" stroke-opacity=".45" stroke-width="1.2"><path d="M6 9L16 16L6 23M16 16L26 9M16 16L26 23M6 9L26 9M6 23L26 23"/></g>
+      <circle cx="16" cy="16" r="4" fill="var(--acc)"/><circle cx="6" cy="9" r="2.4" fill="var(--acc2)"/><circle cx="6" cy="23" r="2.4" fill="var(--acc2)"/><circle cx="26" cy="9" r="2.4" fill="var(--acc)"/><circle cx="26" cy="23" r="2.4" fill="var(--acc)"/></svg>
+    <span><b>VEGA</b><small>a mind that grows up</small></span>
+  </a>
+  <nav class="seg"><button id="tabSetup" class="on">Lives</button><button id="tabLive">Live</button><button id="tabBrain">Brain map</button></nav>
+  <select id="runSel" title="Which life"></select>
+  <span id="status" class="muted mono" style="font-size:12px"></span>
+  <span class="spacer"></span>
+  <nav class="seg" id="viewSeg" title="Simple explains things in plain words; Lab shows every number"><button id="vSimple" class="on">Simple</button><button id="vLab">Lab</button></nav>
+  <button class="icon" id="theme" title="Light or dark">◐</button>
+</header>
+<div id="banner" hidden></div>
+<main>
+<section id="setup">
+  <div id="hero" aria-label="Introduction">
+    <div id="heroIn">
+      <canvas id="heroCv" aria-hidden="true"></canvas>
+      <svg id="ring" viewBox="0 0 400 290" aria-hidden="true"><use href="#brainOutline"/></svg>
+      <h1 id="heroH"><span>A MIND</span><span>THAT GROWS</span><span>UP</span></h1>
+      <p id="heroP">Every choice leaves a trace. Every trace joins the map of what led to what.</p>
+      <p id="heroQ">Layer by layer, he is made of what happened to him.</p>
+      <div id="heroCue">SCROLL DOWN</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Your lives</h2>
+    <div id="runsTable"><span class="muted">loading</span></div>
+    <p class="legend"><b>Resume</b> carries a life on from its last checkpoint (taken every 6 months and when stopped), after a crash, a driver reset or a restart. <b>Stop</b> finishes the current step, saves, and ends. <b>Kill</b> ends the process at once; the last checkpoint stays, the current month is lost. Train one life at a time on an 8 GB GPU. While a life trains the laptop is kept from sleeping, but closing the lid or restarting still ends it.</p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h2>New life</h2>
+    <div class="stat" style="align-items:flex-end">
+      <label>Run name<br><input id="runName" value="vega-1"></label>
+      <label>Seed: a number, or any words<br><input id="seed" value="1" style="width:230px" title="the same seed always makes the same life"> <button type="button" class="icon" id="dice" title="a new seed">⚄</button></label>
+      <span id="seedNum" class="muted mono" style="font-size:11.5px;align-self:center"></span>
+      <label class="lab">Profile<br><select id="profile"></select></label>
+      <label class="lab">Live until (years)<br><input id="maxAge" type="number" value="90" style="width:80px"></label>
+      <label class="lab">Corpus folder (optional .txt)<br><input id="corpus" placeholder="C:\path\to\texts" style="width:260px"></label>
+      <button class="primary" id="start">Give birth</button> <span id="startMsg" class="muted"></span>
+    </div>
+    <p class="muted lab" id="profileNote" style="margin-bottom:0"></p>
+    <p class="muted simple" style="margin-bottom:0">The seed decides everything he is born into: his family and when they die, his friends, his school and his neighbourhood. Type any words as a seed, or press ⚄, then move anything below. What you move stays; the rest follows the seed.</p>
+    <p class="muted lab" style="margin-bottom:0">Each factor is seeded from the seed and the family he is born into unless you tick <b>set</b> and choose a value. A schedule changes a factor at a given age. You can change any factor live once he is born.</p>
+  </div>
+  <div id="factorCards" style="margin-top:14px"></div>
+  <div class="card lab"><h2>Schedule changes</h2>
+    <div id="timeline"></div><button id="addTl">Add a change</button></div>
+</section>
+
+<section id="live" hidden>
+  <div class="hero">
+    <div class="card"><h2>His brain</h2>
+      <div class="brainWrap">
+        <svg id="brainSvg" viewBox="0 0 400 290" role="img" aria-label="A side view of a human brain; each part glows with how that part of his mind is doing">
+          <g clip-path="url(#cerebrumClip)"><g style="filter:blur(9px)">
+            <polygon class="reg" id="r-frontal" style="--c:#3fe0d0" points="30,30 191,30 186,150 130,176 30,176"><title>Frontal lobe: planning and choices</title></polygon>
+            <polygon class="reg" id="r-parietal" style="--c:#b58cff" points="191,30 275,30 268,168 186,152"><title>Parietal lobe: thinking and solving</title></polygon>
+            <polygon class="reg" id="r-occipital" style="--c:#ff7ac8" points="275,30 380,30 380,210 262,172"><title>Occipital lobe: screens and media</title></polygon>
+            <polygon class="reg" id="r-temporal" style="--c:#8be06a" points="28,178 130,176 186,152 262,172 340,205 340,240 28,240"><title>Temporal lobe: language</title></polygon>
+          </g></g>
+          <path class="reg" id="r-cerebellum" style="--c:#ffd36b" d="M258,198 C280,192 330,196 345,214 C352,232 322,258 290,255 C268,252 252,234 258,198 Z"><title>Cerebellum: skills and movement</title></path>
+          <path class="reg" id="r-stem" style="--c:#6fb4ff" d="M222,200 C228,225 232,250 236,276 L252,276 C250,248 246,222 244,200 Z"><title>Brainstem: sleep and stress</title></path>
+          <circle class="reg" id="r-amygdala" style="--c:#ff5c5c" cx="190" cy="168" r="10"><title>Amygdala: fear and worry</title></circle>
+          <ellipse class="reg" id="r-hippo" style="--c:#ffffff" cx="226" cy="164" rx="24" ry="7" transform="rotate(14 226 164)"><title>Hippocampus: memory</title></ellipse>
+          <use href="#brainOutline" class="bo" width="400" height="290"/>
+          <g id="readout" aria-hidden="true"><circle id="roRing" r="7"/><circle id="roDot" r="1.8"/><polyline id="roLine"/><text id="roName"/><text id="roXY"/></g>
+        </svg>
+        <div id="brainLegend"></div>
+      </div>
+      <div class="legend simple">The glow of each part follows how that part of his mind is doing in the simulation. It is a picture of the idea, not a scan.</div>
+      <div class="actions"><button id="resume" class="primary" hidden>Resume this life</button><button id="stop">Stop this life</button><button id="kill" class="danger">Kill</button></div></div>
+    <div style="display:grid;gap:14px;align-content:start">
+      <div class="card simple"><h2>How he's doing</h2><div id="story"></div></div>
+      <div class="card"><h2>Right now</h2><div id="nowLive"><span class="muted">(this run predates present-moment awareness)</span></div></div>
+    </div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>His people</h2><div id="familyLive"><span class="muted">(this life predates family and grief)</span></div></div>
+    <div class="card"><h2>His body chemistry</h2><div id="chemLive"><span class="muted">(this life predates body chemistry)</span></div></div>
+    <div class="card"><h2>His work</h2><div id="workLive"><span class="muted">(this life predates the working life)</span></div></div>
+    <div class="card"><h2>His mind</h2><div id="mindLive"><span class="muted">(this life predates his inner voice)</span></div></div>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>His relationships</h2><div id="bondsLive"><span class="muted">(this life predates relationship dynamics)</span></div></div>
+    <div class="card"><h2>His schooling</h2><div id="schoolLive"><span class="muted">(this life predates schooling by region)</span></div></div>
+    <div class="card"><h2>His phone</h2><div id="phoneLive"><span class="muted">(this life predates the phone)</span></div></div>
+    <div class="card"><h2>His mental health</h2><div id="mentalLive"><span class="muted">(this life predates mental health)</span></div></div>
+    <div class="card"><h2>What he faces</h2><div id="biasLive"><span class="muted">(this life predates prejudice)</span></div></div>
+    <div class="card"><h2>Hardships and faith</h2><div id="hardLive"><span class="muted">(this life predates hardships)</span></div></div>
+    <div class="card"><h2>His body and hormones</h2><div id="hormLive"><span class="muted">(this life predates hormones)</span></div></div>
+    <div class="card"><h2>His health</h2><div id="healthLive"><span class="muted">(this life predates named illnesses)</span></div></div>
+    <div class="card"><h2>This season of his life</h2><div id="seasonLive"><span class="muted">(this life predates the seasons of life)</span></div></div>
+  </div>
+  <div class="card" id="talkCard" style="margin-top:14px"><h2>Talk to him</h2>
+    <div id="chatLog"><div class="empty">Say something. He answers with his own network, from the moment he is in and whatever your words bring back to him.</div></div>
+    <form id="chatForm" class="chatbar"><input id="chatIn" maxlength="300" autocomplete="off" placeholder="Ask him about school, his friends, how he feels…"><button class="primary" id="chatSend">Send</button></form>
+    <div class="legend">He can only speak as well as he has learned to: a toddler babbles, an adult trained for years makes more sense. Talking to him does not change his life. A life that is not running is woken from its last save, which can take a minute.</div></div>
+  <div class="card lab" style="margin-top:14px"><h2>His network (the model)</h2>
+    <div id="netWrap"><canvas id="netViz"></canvas></div>
+    <div class="stat" id="now"></div>
+    <div class="growth" id="growthBar"></div><div class="legend" id="growthNote"></div></div>
+  <div class="grid lab" style="margin-top:14px">
+    <div class="card"><h2>Learning</h2><canvas id="cLoss" class="chart"></canvas>
+      <div class="legend"><span class="key"><i style="background:var(--acc)"></i>loss on what he heard</span><span class="key"><i style="background:var(--warn)"></i>loss on a fixed test</span>lower is better</div></div>
+    <div class="card"><h2>Rewards and wellbeing</h2><canvas id="cRew" class="chart"></canvas>
+      <div class="legend"><span class="key"><i style="background:var(--acc)"></i>reward of what he lived</span><span class="key"><i style="background:var(--good)"></i>wellbeing</span><span class="key"><i style="background:var(--acc2)"></i>groups with a learning signal</span></div></div>
+  </div>
+  <div class="grid lab">
+    <div class="card"><h2>What he heard this month</h2><pre id="heard"></pre></div>
+    <div class="card"><h2>What he says, from his own network</h2><pre id="babble"></pre></div>
+  </div>
+  <div class="grid">
+    <div class="card wide lab"><h2>Situations and problems · each one is a GRPO update</h2><div id="items" style="max-height:760px;overflow:auto"></div></div>
+    <div class="card simple wide"><h2>Recent choices</h2><div id="choices"></div></div>
+    <div class="card"><h2>His life, in order</h2><div class="log" id="log" style="max-height:760px;overflow:auto"></div></div>
+  </div>
+  <div class="grid">
+    <div class="card wide"><h2>His friends</h2><div id="friendsLive"></div>
+      <div class="stat lab" style="margin-top:12px;align-items:flex-end"><b class="muted" style="font-size:12px;font-weight:500">Add a friend now</b>
+        <label>Name<br><input id="nfName" style="width:96px"></label><label>Close<br><input id="nfClose" type="number" value="0.6" min="0" max="1" step="0.05" style="width:64px"></label>
+        <label>Kind<br><input id="nfKind" type="number" value="0.6" min="0" max="1" step="0.05" style="width:64px"></label>
+        <label>Risky<br><input id="nfRisk" type="number" value="0.3" min="0" max="1" step="0.05" style="width:64px"></label>
+        <label>Studious<br><input id="nfStudy" type="number" value="0.5" min="0" max="1" step="0.05" style="width:64px"></label><button id="nfAdd">Add</button></div></div>
+    <div class="card"><h2>School and learning</h2><div id="schoolLive"></div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Memory · what happened, and what he remembers now</h2><div id="memLive"></div></div>
+  <div class="grid lab" style="margin-top:14px" id="stateCards"></div>
+  <div class="card lab" style="margin-top:14px"><h2>Factors in force · change live</h2><table id="ftable"></table></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);const UI_VERSION=18;let CAT=null,RUN=null,timer=null,NET=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const calm=matchMedia('(prefers-reduced-motion: reduce)');
+async function api(p,body){const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
+function tab(which){$('setup').hidden=which!=='setup';$('live').hidden=which!=='live';$('tabSetup').classList.toggle('on',which==='setup');$('tabLive').classList.toggle('on',which==='live');if(which==='live')requestAnimationFrame(()=>NET&&sizeNet())}
+$('tabSetup').onclick=()=>tab('setup');$('tabLive').onclick=()=>tab('live');
+$('tabBrain').onclick=()=>{location.href='/brain'+(RUN?'?run='+encodeURIComponent(RUN):'')};
+$('theme').onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('vega-theme',t)}catch(e){}if(RUN)poll()};
+
+async function init(){
+  try{const v=await api('/api/version');if(v.version<UI_VERSION)throw 0}catch(e){$('banner').hidden=false;$('banner').textContent='The server is running old code, so Stop and Kill may not work. Restart it: end the python process serving this page and start ui/server.py again. Running lives are not affected.'}
+  CAT=await api('/api/catalogue');
+  for(const [k,v] of Object.entries(CAT.profiles)){const o=document.createElement('option');o.value=k;o.textContent=`${k} (cap ${(v/1e6).toFixed(0)}M params)`;$('profile').append(o)}
+  $('profile').value='laptop_xl';const note=()=>{$('profileNote').textContent=(CAT.notes||{})[$('profile').value]||''};$('profile').onchange=note;note();
+  const byStage={};for(const f of CAT.factors)(byStage[f.stage]??=[]).push(f);
+  for(const [st,fs] of Object.entries(byStage)){const c=document.createElement('div');c.className='card';c.style.marginBottom='14px';c.dataset.stage=st;
+    c.innerHTML=`<h2>${esc(CAT.stages[st])}</h2>`+fs.map(f=>`<div class="factor"><div><b>${esc(f.label)}</b><br><small>${esc(f.domain)}</small></div><small>${esc(f.effect)}</small>${factorControl(f)}<span><span class="fv" data-show="${f.key}">${esc(fmtVal(f.ui,f.mean))}</span> <button type="button" class="icon rs" data-reset="${f.key}" title="back to the seed's value">↺</button></span></div>`).join('');$('factorCards').append(c)}
+  const moveTo=(k,v)=>{OVR[k]=Math.max(0,Math.min(1,v));showFactor(k,OVR[k],true);previewSoon()};
+  document.querySelectorAll('input[data-val]').forEach(sl=>sl.oninput=()=>{const u=FUI[sl.dataset.val];moveTo(sl.dataset.val,u.kind==='scale'?(+sl.value-u.lo)/(u.hi-u.lo):+sl.value)});
+  document.querySelectorAll('.stepper[data-val]').forEach(st=>st.onclick=e=>{const b=e.target.closest('[data-step]');if(!b)return;const u=FUI[st.dataset.val];
+    const n=Math.max(0,Math.min(u.max,Math.round((+st.dataset.v||0)*u.max)+(+b.dataset.step)));moveTo(st.dataset.val,n/u.max)});
+  document.querySelectorAll('.choices[data-val]').forEach(ch=>ch.onclick=e=>{const b=e.target.closest('[data-opt]');if(b)moveTo(ch.dataset.val,+b.dataset.opt)});
+  document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>{delete OVR[b.dataset.reset];previewSoon(0)});
+  const fc=document.createElement('div');fc.className='card';fc.style.marginBottom='14px';
+  fc.innerHTML=`<h2>His friends, by name</h2><p class="muted">List the people in his life. Each is a person with traits: a risk-taking friend dares him, a studious one pulls him to study group, a kind one notices when he is low. Leave the list empty and friends are seeded from the factors above.</p>
+    <label><input type="checkbox" id="friendSeed" checked> seed friends from the factors when I list none</label><div id="friendRows"></div><button id="addFriend">Add a friend</button>`;
+  const anchor=document.querySelector('#factorCards [data-stage="friends"]');anchor?anchor.after(fc):$('factorCards').append(fc);
+  $('addFriend').onclick=()=>{FRIENDS_EDITED=true;friendRow()};
+  $('friendRows').oninput=()=>{FRIENDS_EDITED=true};
+  const fam=document.createElement('div');fam.className='card';fam.style.marginBottom='14px';
+  fam.innerHTML=`<h2>His family</h2><p class="muted">Who he is born among, from the seed. Change anyone: how old they are when he is born, how close they are, or the age he is when they die (leave it empty to let life decide). Grief follows the closeness and the way they go.</p>
+    <div class="famrow" style="color:var(--muted)"><span>name</span><span>who</span><span>their age at his birth</span><span>closeness</span><span>joins at his age</span><span>dies at his age</span><span></span></div>
+    <div id="famRows"></div><button id="addRel">Add someone</button> <button id="famReset" title="back to the family the seed gives">Back to the seed's family</button>`;
+  fc.after(fam);
+  $('addRel').onclick=()=>{FAM_EDITED=true;famRow({relation:'sibling',name:'',age_at_his_birth:-2,closeness:0.6})};
+  $('famReset').onclick=()=>{FAM_EDITED=false;previewSoon(0)};
+  $('famRows').oninput=()=>{FAM_EDITED=true};
+  $('seed').oninput=()=>previewSoon();
+  $('dice').onclick=()=>{const W=['quiet','river','rainy','paper','harbour','winter','lantern','orchard','copper','salt','meadow','north','glass','ember','willow','station'];
+    $('seed').value=Array.from({length:3},()=>W[Math.random()*W.length|0]).join(' ');previewSoon(0)};
+  await refreshRuns();
+  previewSoon(0);
+  const want=new URLSearchParams(location.search).get('run');if(want){select(want);tab('live')}
+}
+const NUM=(cls,v,w=64,mx=1,step=0.05)=>`<input type="number" class="${cls}" value="${v}" min="0" max="${mx}" step="${step}" style="width:${w}px">`;
+function friendRow(d={}){const r=document.createElement('div');r.className='stat';r.style.cssText='margin:8px 0;align-items:flex-end';
+  r.innerHTML=`<label>Name<br><input class="frName" value="${esc(d.name||'')}" style="width:90px" placeholder="Maya"></label>
+  <label>Meets (age)<br>${NUM('frJoin',d.joined_years??6,64,100,0.5)}</label><label>Leaves (age, optional)<br><input type="number" class="frLeft" style="width:64px" step="0.5" min="0"></label>
+  <label>Close<br>${NUM('frClose',d.closeness??0.6)}</label><label>Kind<br>${NUM('frKind',d.kindness??0.6)}</label>
+  <label>Risky<br>${NUM('frRisk',d.risk??0.3)}</label><label>Studious<br>${NUM('frStudy',d.studiousness??0.5)}</label>
+  <label><input type="checkbox" class="frOnline"> online only</label><button>remove</button>`;
+  r.querySelector('button').onclick=()=>r.remove();$('friendRows').append(r)}
+function readFriend(r){const left=r.querySelector('.frLeft').value;return{name:r.querySelector('.frName').value.trim(),joined_years:+r.querySelector('.frJoin').value,left_years:left===''?null:+left,
+  closeness:+r.querySelector('.frClose').value,kindness:+r.querySelector('.frKind').value,risk:+r.querySelector('.frRisk').value,studiousness:+r.querySelector('.frStudy').value,online:r.querySelector('.frOnline').checked}}
+function tlRow(){const d=document.createElement('div');d.className='stat';d.style.margin='6px 0';d.innerHTML=`<label>At age <input type="number" class="tlAge" value="30" style="width:70px"></label><label>set <select class="tlKey">${CAT.factors.map(f=>`<option value="${f.key}">${esc(f.label)}</option>`).join('')}</select></label><label>to <input type="number" class="tlVal" min="0" max="1" step="0.05" value="0.9" style="width:70px"></label><button>remove</button>`;d.querySelector('button').onclick=()=>d.remove();$('timeline').append(d)}
+$('addTl').onclick=tlRow;
+$('nfAdd').onclick=async()=>{if(!RUN)return;try{await api('/api/intervene',{run:RUN,friend:{name:$('nfName').value.trim(),closeness:+$('nfClose').value,kindness:+$('nfKind').value,risk:+$('nfRisk').value,studiousness:+$('nfStudy').value}});$('nfName').value=''}catch(e){alert(e.message)}};
+$('kill').onclick=()=>{if(RUN)killRun(RUN)};
+$('stop').onclick=()=>{if(RUN)stopRun(RUN)};
+$('resume').onclick=()=>{if(RUN)resumeRun(RUN)};
+// ---------------------------------------------------------------- the seed, and everything it gives him (all movable)
+let OVR={},FAM_EDITED=false,FRIENDS_EDITED=false,PREVIEW_T=0;
+// Each factor in what it means: counts, choices, real units, or words (factors.UNITS). Inside, still 0-1.
+const FUI={},LEVELS=['none','very low','low','moderate','high','very high'];
+const nearest=(u,v)=>u.options.reduce((a,b)=>Math.abs(b[0]-v)<Math.abs(a[0]-v)?b:a);
+function fmtVal(u,v){u=u||{kind:'level',words:LEVELS};
+  if(u.kind==='count'){const n=Math.round(v*u.max);return `${n} ${u.unit}`}
+  if(u.kind==='choice')return nearest(u,v)[1];
+  if(u.kind==='scale'){const x=u.lo+(u.hi-u.lo)*v,d=u.step<1?1:0;return `${(+x.toFixed(d)).toLocaleString()} ${u.unit}`}
+  return (u.words||LEVELS)[Math.min(5,Math.round(v*5))]}
+function factorControl(f){const u=f.ui||{kind:'level'};FUI[f.key]=u;
+  if(u.kind==='count')return `<span class="stepper" data-val="${f.key}"><button type="button" data-step="-1" title="fewer">−</button><b data-n>0</b><button type="button" data-step="1" title="more">+</button></span>`;
+  if(u.kind==='choice')return `<span class="choices" data-val="${f.key}">${u.options.map(([v,l])=>`<button type="button" data-opt="${v}">${esc(l)}</button>`).join('')}</span>`;
+  if(u.kind==='scale')return `<input type="range" data-val="${f.key}" min="${u.lo}" max="${u.hi}" step="${u.step}">`;
+  return `<input type="range" data-val="${f.key}" min="0" max="1" step="0.01">`}
+function showFactor(k,v,moved){const el=document.querySelector(`[data-val="${k}"]`),u=FUI[k];if(!el||!u)return;
+  if(u.kind==='count'){el.dataset.v=v;el.querySelector('[data-n]').textContent=Math.round(v*u.max)}
+  else if(u.kind==='choice'){const o=nearest(u,v)[0];el.querySelectorAll('[data-opt]').forEach(b=>b.classList.toggle('on',+b.dataset.opt===o))}
+  else if(u.kind==='scale')el.value=u.lo+(u.hi-u.lo)*v;else el.value=v;
+  document.querySelector(`[data-show="${k}"]`).textContent=fmtVal(u,v);el.closest('.factor').classList.toggle('moved',!!moved)}
+function previewSoon(ms=250){clearTimeout(PREVIEW_T);PREVIEW_T=setTimeout(previewLife,ms)}
+async function previewLife(){let r;try{r=await api('/api/preview',{seed:$('seed').value,factors:OVR,family:FAM_EDITED?readFamily():null,
+    friends:FRIENDS_EDITED?[...$('friendRows').children].map(readFriend):[],friend_seed:$('friendSeed').checked})}catch(e){$('seedNum').textContent=e.message;return}
+  $('seedNum').textContent=r.phrase?`→ seed ${r.seed}`:'';
+  for(const [k,v] of Object.entries(r.factors))showFactor(k,v.value,k in OVR);
+  if(!FAM_EDITED){$('famRows').innerHTML='';r.family.forEach(famRow)}
+  if(!FRIENDS_EDITED){$('friendRows').innerHTML='';r.friends.forEach(f=>friendRow(f))}}
+const RELS=['mother','father','grandparent','sibling','partner','pet'];
+function famRow(d){const row=document.createElement('div');row.className='famrow';
+  row.innerHTML=`<input data-f="name" value="${esc(d.name||'')}" placeholder="name"><select data-f="relation">${RELS.map(x=>`<option ${x===d.relation?'selected':''}>${x}</option>`).join('')}</select>
+    <input data-f="age_at_his_birth" type="number" step="0.5" value="${d.age_at_his_birth??30}"><input data-f="closeness" type="number" min="0" max="1" step="0.05" value="${d.closeness??0.6}">
+    <input data-f="joins_at_years" type="number" min="0" step="0.5" value="${d.joins_at_years??0}"><input data-f="dies_at_years" type="number" min="0" step="0.5" value="${d.dies_at_years??''}" placeholder="life decides">
+    <button type="button" class="icon" title="remove">×</button>`;
+  row.querySelector('button').onclick=()=>{FAM_EDITED=true;row.remove()};$('famRows').append(row)}
+function readFamily(){return [...$('famRows').children].map(r=>{const g=k=>r.querySelector(`[data-f="${k}"]`).value;
+  return {name:g('name').trim(),relation:g('relation'),age_at_his_birth:+g('age_at_his_birth'),closeness:+g('closeness'),joins_at_years:+g('joins_at_years'),dies_at_years:g('dies_at_years')===''?null:+g('dies_at_years')}})}
+$('start').onclick=async()=>{
+  const factors={...OVR};
+  const timeline=[...$('timeline').children].map(r=>({age_years:+r.querySelector('.tlAge').value,key:r.querySelector('.tlKey').value,value:+r.querySelector('.tlVal').value}));
+  const friends=[...$('friendRows').children].map(readFriend);
+  try{const r=await api('/api/start',{run:$('runName').value,seed:$('seed').value,family:FAM_EDITED?readFamily():[],profile:$('profile').value,max_age_years:+$('maxAge').value,corpus_dir:$('corpus').value,factors,timeline,friends,friend_seed:$('friendSeed').checked});
+    $('startMsg').textContent='born.';await refreshRuns();select(r.run);tab('live')}catch(e){$('startMsg').textContent=e.message}
+};
+function statusPill(r){if(r.running)return '<span class="pill live">training</span>';const s=String(r.status||'');
+  const cls=/finished/.test(s)?'':/killed|not running|stopped without/.test(s)?'bad':/stop/.test(s)?'warn':'';return `<span class="pill ${cls}">${esc(s)}</span>`}
+async function refreshRuns(){let runs;try{runs=await api('/api/runs')}catch(e){return}
+  const names=runs.map(r=>typeof r==='string'?r:r.name);
+  if($('runSel').options.length!==names.length+1||names.some((n,i)=>$('runSel').options[i+1].value!==n)){$('runSel').innerHTML='<option value="">(pick a life)</option>'+names.map(r=>`<option>${esc(r)}</option>`).join('');if(RUN)$('runSel').value=RUN}
+  const live=runs.filter(r=>r.running).length;
+  const cur=runs.find(r=>r.name===RUN);$('stop').disabled=!(cur&&cur.running);$('kill').disabled=!cur;
+  $('runsTable').innerHTML=runs.length?'<table><tr><th>life</th><th>status</th><th>age</th><th class="lab">network</th><th class="lab">profile</th><th></th></tr>'+runs.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${statusPill(r)}</td><td class="mono">${r.age_years??''}${r.age_years!=null?'y':''}</td><td class="mono lab">${r.params?(r.params/1e6).toFixed(0)+'M':''}</td><td class="lab">${esc(r.profile||'')}<br><span class="muted" style="font-size:11px">${esc(r.optimizer||'')}</span></td>
+    <td style="white-space:nowrap;text-align:right"><button data-open="${esc(r.name)}">Open</button> ${r.resumable?`<button class="primary" data-resume="${esc(r.name)}" title="carry on from the checkpoint of ${esc(r.checkpoint_at||'')}">Resume</button> `:''}<button data-stop="${esc(r.name)}" ${r.running?'':'disabled'}>Stop</button> <button class="danger" data-kill="${esc(r.name)}" ${r.running?'':'disabled'}>Kill</button></td></tr>`).join('')+'</table>'+(live>1?`<p class="neg">${live} lives are training at once; on an 8 GB GPU they will slow each other down and may run out of memory.</p>`:''):'<div class="empty">no lives yet: set one up below and give birth</div>';
+  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{select(b.dataset.open);tab('live')});
+  document.querySelectorAll('[data-stop]').forEach(b=>b.onclick=()=>stopRun(b.dataset.stop));
+  document.querySelectorAll('[data-kill]').forEach(b=>b.onclick=()=>killRun(b.dataset.kill));
+  document.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>resumeRun(b.dataset.resume));
+  $('resume').hidden=!(cur&&cur.resumable)}
+async function resumeRun(name){try{const r=await api('/api/resume',{run:name});$('status').textContent=name+': '+r.message;select(name);tab('live')}catch(e){alert('Resume failed: '+e.message)}setTimeout(refreshRuns,1500)}
+async function stopRun(name){if(!confirm('Stop '+name+'? It finishes its current step within seconds, saves and ends.'))return;
+  try{const r=await api('/api/stop',{run:name});$('status').textContent=name+': '+r.message}catch(e){alert('Stop failed: '+e.message)}setTimeout(refreshRuns,1500)}
+async function killRun(name){if(!confirm('Kill '+name+' now? Training ends at once and the unsaved part is lost.'))return;
+  try{const r=await api('/api/kill',{run:name});$('status').textContent=name+': '+r.message;if(!r.ok)alert(r.message)}catch(e){alert('Kill failed: '+e.message)}setTimeout(refreshRuns,800);setTimeout(refreshRuns,3000)}
+setInterval(()=>{if(!document.hidden)refreshRuns()},6000);
+$('runSel').onchange=()=>{if($('runSel').value){select($('runSel').value);tab('live')}};
+function select(r){RUN=r;$('runSel').value=r;clearInterval(timer);poll();timer=setInterval(poll,2000)}
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function chart(cv,series,opts={}){const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w)return;cv.width=w*dpr;cv.height=h*dpr;const g=cv.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,w,h);
+  const pts=series.flatMap(s=>s.data);if(!pts.length)return;let x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0]));if(x1===x0)x1=x0+1;
+  let y0=opts.y0??Math.min(...pts.map(p=>p[1])),y1=opts.y1??Math.max(...pts.map(p=>p[1]));if(y1===y0)y1=y0+1;
+  const L=34,X=x=>L+(x-x0)/(x1-x0)*(w-L-4),Y=y=>6+(1-(y-y0)/(y1-y0))*(h-24);
+  g.strokeStyle=css('--line');g.lineWidth=1;g.setLineDash([2,4]);for(let i=0;i<=4;i++){const y=6+i/4*(h-24);g.beginPath();g.moveTo(L,y);g.lineTo(w,y);g.stroke()}g.setLineDash([]);
+  g.fillStyle=css('--muted');g.font='10px '+css('--mono');g.fillText(y1.toFixed(2),0,10);g.fillText(y0.toFixed(2),0,h-18);g.fillText(x0.toFixed(1)+'y',L,h-4);g.fillText(x1.toFixed(1)+'y',w-36,h-4);
+  for(const s of series){if(!s.data.length)continue;g.strokeStyle=s.color;g.lineWidth=1.6;g.shadowColor=s.color;g.shadowBlur=css('color-scheme')==='light'?0:6;g.beginPath();s.data.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.stroke();g.shadowBlur=0;
+    const last=s.data[s.data.length-1];g.fillStyle=s.color;g.beginPath();g.arc(X(last[0]),Y(last[1]),2.6,0,7);g.fill()}}
+
+// ---------------------------------------------------------------- his network, drawn from its real shape
+// One column per layer (sampled when there are many), neurons per column from its width, signals running through it.
+let netGeom=null,pulses=[],netRaf=0;
+function sizeNet(){const cv=$('netViz'),dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w||!NET)return;cv.width=w*dpr;cv.height=h*dpr;
+  const m=NET,cols=Math.min(m.layers,Math.max(4,Math.floor(w/42))),per=Math.max(2,Math.min(8,Math.round(1+Math.log2(m.d/64)*1.6))),layers=[];
+  const xs=k=>18+k/(cols+1)*(w-36);
+  const colY=n=>Array.from({length:n},(_,i)=>h/2+(i-(n-1)/2)*Math.min(20,(h-40)/n));
+  layers.push(colY(Math.max(2,per-2)).map(y=>({x:xs(0),y,kind:'in'})));
+  for(let c=1;c<=cols;c++)layers.push(colY(per).map(y=>({x:xs(c),y,kind:'h'})));
+  layers.push(colY(Math.max(2,per-3)).map(y=>({x:xs(cols+1),y,kind:'out'})));
+  netGeom={w,h,dpr,layers,shown:cols,total:m.layers};pulses=[];drawNet(performance.now())}
+function drawNet(t){const cv=$('netViz');if(!netGeom||!cv.width)return;const {w,h,dpr,layers}=netGeom,g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const acc=css('--acc'),acc2=css('--acc2'),line=css('--line2');
+  g.lineWidth=0.5;g.strokeStyle=line;g.globalAlpha=0.32;g.beginPath();
+  for(let c=0;c<layers.length-1;c++)for(const a of layers[c])for(const b of layers[c+1]){g.moveTo(a.x,a.y);g.lineTo(b.x,b.y)}g.stroke();g.globalAlpha=1;
+  if(!calm.matches&&!document.hidden){if(pulses.length<26&&Math.random()<0.35)pulses.push({c:0,i:Math.random()*layers[0].length|0,j:Math.random()*layers[1].length|0,p:0,s:0.025+Math.random()*0.03})}
+  for(const q of pulses){const A=layers[q.c][q.i],B=layers[q.c+1][q.j];const x=A.x+(B.x-A.x)*q.p,y=A.y+(B.y-A.y)*q.p;
+    g.strokeStyle=acc;g.globalAlpha=0.5;g.lineWidth=1.1;g.beginPath();g.moveTo(A.x,A.y);g.lineTo(x,y);g.stroke();g.globalAlpha=1;
+    g.fillStyle=acc;g.shadowColor=acc;g.shadowBlur=10;g.beginPath();g.arc(x,y,2,0,7);g.fill();g.shadowBlur=0;
+    q.p+=q.s;if(q.p>=1){q.p=0;q.c++;q.i=q.j;if(q.c>=layers.length-1)q.dead=true;else q.j=Math.random()*layers[q.c+1].length|0;layers[q.c]&&layers[q.c][q.i]&&(layers[q.c][q.i].hot=1)}}
+  pulses=pulses.filter(q=>!q.dead);
+  for(const col of layers)for(const n of col){const hot=n.hot||0;g.fillStyle=n.kind==='h'?acc:acc2;g.globalAlpha=0.55+0.45*hot;if(hot>0.05){g.shadowColor=g.fillStyle;g.shadowBlur=12*hot}
+    g.beginPath();g.arc(n.x,n.y,n.kind==='h'?3:3.4,0,7);g.fill();g.shadowBlur=0;n.hot=hot*0.92}
+  g.globalAlpha=1;g.fillStyle=css('--muted');g.font='10px '+css('--mono');
+  g.fillText('bytes in',layers[0][0].x-14,h-4);const lastC=layers[layers.length-1];g.fillText('next byte',lastC[0].x-40,h-4);
+  g.fillText(netGeom.shown<netGeom.total?`${netGeom.total} layers (showing ${netGeom.shown})`:`${netGeom.total} layers`,w/2-50,12)}
+function netLoop(t){if(!$('live').hidden&&!document.hidden)drawNet(t);netRaf=calm.matches?0:requestAnimationFrame(netLoop)}
+function setNet(m){const same=NET&&NET.d===m.d&&NET.layers===m.layers;NET=m;if(!same)sizeNet();if(!netRaf&&!calm.matches)netRaf=requestAnimationFrame(netLoop)}
+addEventListener('resize',()=>{if(NET)sizeNet();bgSize()});
+
+// ---------------------------------------------------------------- a few drifting neurons behind everything (still if motion is reduced)
+const bg=$('bgNet'),bgc=bg.getContext('2d');let dots=[];
+function bgSize(){const dpr=devicePixelRatio||1;bg.width=innerWidth*dpr;bg.height=innerHeight*dpr;bgc.setTransform(dpr,0,0,dpr,0,0);
+  const n=Math.round(Math.min(46,innerWidth*innerHeight/32000));dots=Array.from({length:n},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18}));bgDraw()}
+function bgDraw(){const w=innerWidth,h=innerHeight,acc=css('--acc'),light=document.documentElement.dataset.theme==='light';bgc.clearRect(0,0,w,h);
+  for(let i=0;i<dots.length;i++){const a=dots[i];for(let j=i+1;j<dots.length;j++){const b=dots[j],d=Math.hypot(a.x-b.x,a.y-b.y);if(d<150){bgc.globalAlpha=(1-d/150)*(light?.10:.16);bgc.strokeStyle=acc;bgc.lineWidth=.7;bgc.beginPath();bgc.moveTo(a.x,a.y);bgc.lineTo(b.x,b.y);bgc.stroke()}}}
+  bgc.strokeStyle=css('--acc2');for(const a of dots){const d=Math.hypot(a.x-mx,a.y-my);if(d<170){bgc.globalAlpha=(1-d/170)*.5;bgc.beginPath();bgc.moveTo(a.x,a.y);bgc.lineTo(mx,my);bgc.stroke()}}   // the curious ones reach for it
+  bgc.fillStyle=acc;for(const a of dots){bgc.globalAlpha=light?.18:.32;bgc.beginPath();bgc.arc(a.x,a.y,1.6,0,7);bgc.fill()}bgc.globalAlpha=1}
+let mx=-999,my=-999;addEventListener('pointermove',e=>{mx=e.clientX;my=e.clientY},{passive:true});
+let bgLast=0;function bgLoop(t){if(!document.hidden&&t-bgLast>33){bgLast=t;for(const a of dots){const dx=a.x-mx,dy=a.y-my,d=Math.hypot(dx,dy);if(d<130&&d>1){a.x+=dx/d*(130-d)*.045;a.y+=dy/d*(130-d)*.045}   // they shy away from the cursor, then drift back to wandering
+      a.x+=a.vx*3;a.y+=a.vy*3;if(a.x<0||a.x>innerWidth)a.vx*=-1;if(a.y<0||a.y>innerHeight)a.vy*=-1}bgDraw()}if(!calm.matches)requestAnimationFrame(bgLoop)}
+bgSize();if(!calm.matches)requestAnimationFrame(bgLoop);
+
+// ---------------------------------------------------------------- the fly-through: particles in a tunnel, rings for layers
+const hero=$('hero'),hcv=$('heroCv'),hg=hcv.getContext('2d');let HP=[],hp=0,hpS=0,hw=0,hh=0;
+const DEPTH=1400,LAYERS=14;
+function heroSize(){const dpr=devicePixelRatio||1;hw=hcv.clientWidth;hh=hcv.clientHeight;hcv.width=hw*dpr;hcv.height=hh*dpr;hg.setTransform(dpr,0,0,dpr,0,0);
+  const n=Math.round(Math.min(900,Math.max(260,hw*hh/1400)));HP=Array.from({length:n},()=>{const a=Math.random()*6.283,r=Math.sqrt(Math.random())*520+40;return{x:Math.cos(a)*r,y:Math.sin(a)*r,z:Math.random()*DEPTH,k:Math.random()}})}
+function heroDraw(){if($('setup').hidden||document.hidden)return;const r=hero.getBoundingClientRect(),span=hero.offsetHeight-innerHeight+60;hp=Math.max(0,Math.min(1,-r.top/Math.max(1,span)+0.0));
+  if(r.bottom<0)return;hpS+=(hp-hpS)*(calm.matches?1:.12);const cam=hpS*(DEPTH-260),f=Math.min(hw,hh)*0.9;
+  hg.clearRect(0,0,hw,hh);const cx=hw/2+(mx>-900?(mx-hw/2)*-.05:0),cy=hh*0.5+(my>-900?(my-hh/2)*-.05:0);
+  const acc=css('--acc'),hot=css('--acc2'),cool=css('--k-state');
+  for(let i=0;i<LAYERS;i++){const z=((i+1)/LAYERS)*DEPTH-cam;if(z<30||z>DEPTH)continue;const s=f/z,rad=520*s;hg.globalAlpha=Math.min(.5,(1-z/DEPTH)*.7)*Math.min(1,(z-30)/200);hg.strokeStyle=acc;hg.lineWidth=1;hg.beginPath();hg.ellipse(cx,cy,rad,rad*.62,0,0,7);hg.stroke()}
+  for(const p of HP){const z=((p.z-cam)%DEPTH+DEPTH)%DEPTH;if(z<20)continue;const s=f/z,x=cx+p.x*s,y=cy+p.y*s*.9;if(x<-10||x>hw+10||y<-10||y>hh+10)continue;
+    hg.globalAlpha=Math.min(1,(1-z/DEPTH)*1.4)*(0.35+0.65*p.k);hg.fillStyle=p.k>.92?hot:p.k>.8?cool:acc;const sz=Math.max(.6,3.2*s*1.6);hg.fillRect(x-sz/2,y-sz/2,sz,sz)}
+  hg.globalAlpha=1;
+  $('heroH').style.opacity=Math.max(0,1-hpS*2.2);$('heroH').style.transform=`translateY(${hpS*-60}px)`;$('heroP').style.opacity=Math.max(0,1-hpS*3);
+  $('heroQ').style.opacity=Math.max(0,Math.min(1,(hpS-.3)*4))*Math.max(0,Math.min(1,(1-hpS)*5));$('heroCue').style.opacity=Math.max(0,1-hpS*6);
+  const k=Math.min(1,hpS*1.4);                       // the scene draws in to a rounded screen as you go deeper
+  $('heroIn').style.clipPath=`inset(${(k*5).toFixed(2)}% ${(k*7).toFixed(2)}% round ${(10+k*44).toFixed(1)}px)`;
+  $('ring').style.transform=`rotate(${hpS*540}deg) scale(${1+hpS*1.8})`;$('ring').style.opacity=Math.max(0,1-hpS*1.1)}
+function heroLoop(){heroDraw();if(!calm.matches)requestAnimationFrame(heroLoop)}
+heroSize();addEventListener('resize',heroSize);if(calm.matches)addEventListener('scroll',heroDraw,{passive:true});else requestAnimationFrame(heroLoop);heroDraw();
+// the loader counts up and lifts
+(()=>{const b=$('boot');setTimeout(()=>b&&b.isConnected&&(b.classList.add('gone'),setTimeout(()=>b.remove(),600)),1800);let n=0;const t=setInterval(()=>{n=Math.min(100,n+7+Math.random()*13|0);b.textContent='//'+n;if(n>=100){clearInterval(t);setTimeout(()=>{b.classList.add('gone');setTimeout(()=>b.remove(),600)},180)}},60)})();
+
+// ---------------------------------------------------------------- simple or lab
+function setView(v){document.body.dataset.view=v;$('vSimple').classList.toggle('on',v==='simple');$('vLab').classList.toggle('on',v==='lab');try{localStorage.setItem('vega-view',v)}catch(e){}
+  requestAnimationFrame(()=>{if(NET&&v==='lab')sizeNet();if(RUN)poll()})}
+$('vSimple').onclick=()=>setView('simple');$('vLab').onclick=()=>setView('lab');
+{let v='simple';try{v=localStorage.getItem('vega-view')||'simple'}catch(e){}document.body.dataset.view=v;$('vSimple').classList.toggle('on',v==='simple');$('vLab').classList.toggle('on',v==='lab')}
+
+// ---------------------------------------------------------------- the brain: each part lit by how that part of his mind is doing
+const avg=(...a)=>{const x=a.filter(v=>typeof v==='number');return x.length?x.reduce((p,q)=>p+q,0)/x.length:0};
+const REGIONS=[
+ {id:'frontal',c:'#3fe0d0',name:'Planning and choices',tip:'frontal lobe',v:s=>avg(s.body.pfc_maturity,s.mind.goal_horizon,s.mind.autonomy)},
+ {id:'parietal',c:'#b58cff',name:'Thinking and solving',tip:'parietal lobe',v:s=>avg(s.mind.problem_solving,s.mind.cognition)},
+ {id:'temporal',c:'#8be06a',name:'Language',tip:'temporal lobe',v:s=>s.mind.language},
+ {id:'occipital',c:'#ff7ac8',name:'Screens and media',tip:'occipital lobe',v:s=>s.mind.digital_literacy},
+ {id:'cerebellum',c:'#ffd36b',name:'Skills and movement',tip:'cerebellum',v:s=>s.body.motor},
+ {id:'stem',c:'#6fb4ff',name:'Sleep and stress',tip:'brainstem',v:s=>avg(s.personality.sleep,1-s.body.allostatic_load)},
+ {id:'amygdala',c:'#ff5c5c',name:'Fear and worry',tip:'amygdala',v:s=>s.mind.anxiety},
+ {id:'hippo',c:'#ffffff',name:'Memory',tip:'hippocampus',v:(s,L)=>L.memory?Math.min(1,+L.memory.mean_detail):0.4}];
+function brainUpdate(L){const s=L.state;if(!s)return;const rows=[];
+  for(const r of REGIONS){let v=0;try{v=Math.max(0,Math.min(1,r.v(s,L)||0))}catch(e){}r.now=v;$('r-'+r.id).style.setProperty('--v',v.toFixed(3));rows.push(`<div class="lg${HOT===r.id?' hot':''}" data-r="${r.id}" style="--c:${r.c}"><i></i><div>${r.name}<small>${r.tip}</small></div><span>${Math.round(v*100)}</span></div>`)}
+  $('brainLegend').innerHTML=rows.join('');
+  $('brainLegend').querySelectorAll('.lg').forEach(el=>{el.onmouseenter=()=>readout(el.dataset.r);el.onmouseleave=()=>readout(null)})}
+// where each part sits in the drawing (viewBox units), for the readout's crosshair
+const CENTRE={frontal:[112,112],parietal:[230,84],occipital:[318,128],temporal:[205,186],cerebellum:[300,228],stem:[238,252],amygdala:[190,168],hippo:[226,164]};
+let HOT=null;
+function readout(id){HOT=id;const g=$('readout');document.querySelectorAll('#brainLegend .lg').forEach(e=>e.classList.toggle('hot',e.dataset.r===id));
+  if(!id){g.classList.remove('on');return}
+  const r=REGIONS.find(x=>x.id===id),[x,y]=CENTRE[id],lx=x<200?Math.max(8,x-96):Math.min(300,x+38),ly=y<150?Math.max(16,y-58):Math.min(282,y+52);
+  $('roRing').setAttribute('cx',x);$('roRing').setAttribute('cy',y);$('roDot').setAttribute('cx',x);$('roDot').setAttribute('cy',y);
+  $('roLine').setAttribute('points',`${x},${y} ${x+(lx>x?7:-7)},${ly+3} ${lx+(lx>x?0:96)},${ly+3}`);
+  const nm=$('roName'),xy=$('roXY');nm.setAttribute('x',lx);nm.setAttribute('y',ly);xy.setAttribute('x',lx);xy.setAttribute('y',ly+13);
+  scramble(nm,r.tip);xy.textContent=`X:${x} Y:${y} · ${Math.round((r.now||0)*100)}%`;g.classList.add('on')}
+document.querySelectorAll('#brainSvg .reg').forEach(el=>{el.addEventListener('mouseenter',()=>readout(el.id.slice(2)));el.addEventListener('mouseleave',()=>readout(null))});
+
+// ---------------------------------------------------------------- plain words
+const word=(v,lo,hi)=>v>=hi?'high':v>=lo?'okay':'low';
+function storyUpdate(L){const s=L.state,w=L.wellbeing,age=Math.floor(L.age_months/12);if(!s)return;
+  const mood=w>.75?'thriving':w>.6?'doing well':w>.45?'getting by':w>.3?'struggling':'in a hard place';
+  const fr=(L.friends||[]).filter(f=>f.present).length,mm=L.memory;
+  const parts=[`<p><b>Vega is ${age}</b> and in ${esc(L.stage_label.replace(/ \(.*\)/,'').toLowerCase())}. Overall he is <b>${mood}</b>.</p>`];
+  if(L.alive===false)parts[0]=`<p><b>Vega lived to ${age}.</b> He died of ${esc(L.cause_of_death||'natural causes')}.</p>`;
+  parts.push(`<p>${fr?`He has ${fr} friend${fr>1?'s':''} around him. `:'He has no close friends at the moment. '}${mm?`He holds ${mm.kept} memories and has let go of ${mm.forgotten}.`:''}</p>`);
+  const M=[['Health',s.body.health],['Calm',1-s.mind.anxiety],['Connection',1-s.mind.felt_loneliness],['Language',s.mind.language],['Money',s.economy.wealth]];
+  parts.push(M.map(([k,v])=>`<div class="meter"><span>${k}</span><div class="t"><i style="width:${Math.round(v*100)}%"></i></div><em>${word(v,.4,.7)}</em></div>`).join(''));
+  if(L.status&&!/^(running|starting)$/.test(L.status))parts.push(`<p class="muted" style="font-size:12.5px">This life is not running right now (${esc(L.status)}).</p>`);
+  $('story').innerHTML=parts.join('')}
+function choicesUpdate(L){const sc=(L.items||[]).filter(i=>i.kind==='scenario'&&i.choice&&!i.choice.startsWith('(no')).slice(-6).reverse();
+  $('choices').innerHTML=sc.map(i=>{const d=i.wellbeing_change,verdict=d>.004?'it helped':d<-.004?'it cost him':'it changed little';
+    return `<div class="choice"><span class="age">${i.age}y</span>${esc(i.key.replace(/_/g,' '))}: he chose <b>${esc(i.choice)}</b> — ${verdict}.${i.brain_id?` <a href="/brain?run=${encodeURIComponent(RUN)}&focus=${encodeURIComponent(i.brain_id)}">what it led to</a>`:''}</div>`}).join('')||'<span class="muted">nothing yet</span>'}
+
+// ---------------------------------------------------------------- talking to him (vegalife/chat.py)
+let TALK=[],TALK_RUN=null;
+function bubble(who,text,meta){const d=document.createElement('div');d.className='msg '+who;d.textContent=text;if(meta){const m=document.createElement('span');m.className='meta';m.innerHTML=meta;d.append(m)}
+  const log=$('chatLog');log.querySelector('.empty')?.remove();log.append(d);log.scrollTop=log.scrollHeight;return d}
+function replyMeta(r){const bits=[];if(r.thought)bits.push(`thinking: “${esc(r.thought)}”`);if(r.memory)bits.push(`remembering: “${esc(r.memory)}”${r.memory_id?` <a href="/brain?run=${encodeURIComponent(RUN)}&focus=${encodeURIComponent(r.memory_id)}">map</a>`:''}`);
+  bits.push(`at ${r.age_years}y · ${esc(r.source||'')}`);return bits.join('<br>')}
+async function loadTalk(){if(TALK_RUN===RUN)return;TALK_RUN=RUN;TALK=[];$('chatLog').innerHTML='<div class="empty">Say something. He answers with his own network, from the moment he is in and whatever your words bring back to him.</div>';
+  try{const h=await api('/api/chat/history?run='+encodeURIComponent(RUN));for(const t of h.turns){bubble('you',t.message);TALK.push({who:'you',text:t.message});
+    if(t.reply&&t.reply.reply){bubble('him',t.reply.reply,replyMeta(t.reply));TALK.push({who:'him',text:t.reply.reply})}}}catch(e){}}
+$('chatForm').onsubmit=async ev=>{ev.preventDefault();const text=$('chatIn').value.trim();if(!text||!RUN)return;$('chatIn').value='';
+  bubble('you',text);const wait=bubble('him wait','…thinking');$('chatSend').disabled=true;
+  try{let r=await api('/api/chat',{run:RUN,message:text,history:TALK.slice(-8)});TALK.push({who:'you',text});
+    for(let i=0;r.pending&&i<90;i++){wait.textContent='…'+(r.message||'thinking');await new Promise(z=>setTimeout(z,2000));r=await api(`/api/chat?run=${encodeURIComponent(RUN)}&id=${r.id}`)}
+    wait.remove();if(r.pending){bubble('him wait','(no answer yet: try again in a moment)');return}
+    bubble('him',r.reply,replyMeta(r));TALK.push({who:'him',text:r.reply})}
+  catch(e){wait.remove();bubble('him wait','(could not reach him: '+e.message+')')}finally{$('chatSend').disabled=false;$('chatIn').focus()}};
+
+// ---------------------------------------------------------------- his people, his chemistry, his work
+const CHEM=[['joy','#ff7ac8','how good this month felt, all together'],['dopamine','#ffd36b','wanting and reward; strongest for the unexpected'],
+  ['oxytocin','#ff9a5c','closeness: hugs, a partner, his child, a pet'],['serotonin','#3fe0d0','steadiness: daylight, sleep, being outdoors'],
+  ['endorphins','#8be06a','the lift after exercise, laughter, music'],['cortisol','#ff5c8a','stress: worry, grief, fights, a hard job'],
+  ['adrenaline','#ff5c5c','alarm: exams, danger, shocks'],['melatonin','#b58cff','the night signal: good, dark, regular sleep']];
+function peopleUpdate(L){const f=L.family;if(!f)return;const rel={mother:'mother',father:'father',grandparent:'grandparent',sibling:'sibling',partner:'partner',child:'child',pet:'pet'};
+  const rows=f.people.map(x=>{const st=!x.alive?`died when he was ${x.died_at_his_age}${x.cause?' · '+esc(x.cause):''}`:x.gone?'left his life':x.dementia?`${x.age}, has dementia`:x.present?`${x.age}`:`joins at ${x.joined_at_his_age}`;
+    return `<div class="ppl ${x.alive&&!x.gone?'':'gone'}"><span><b>${esc(x.name)}</b> <small>his ${rel[x.relation]||x.relation}${x.listed_by_user?' *':''} · closeness ${x.closeness}</small></span><span class="st">${st}</span></div>`}).join('');
+  const grief=f.losses.filter(l=>l.now>0.02).map(l=>`<div class="ppl"><span>${esc(l.who)} <small>${l.kind} at ${l.at_years}y · ${l.path} grief${l.sudden?' · sudden':''}</small></span><span class="st">${Math.round(l.now*100)}%</span></div>`).join('');
+  $('familyLive').innerHTML=rows+(grief?`<div class="legend" style="margin:10px 0 4px">Grieving now (each loss on its own path: resilient, recovering or prolonged)</div>${grief}`:'')
+    +`<div class="legend">Grief overall: ${Math.round((f.grief||0)*100)}%. Most people are resilient after a loss; about 1 in 10 grieve for years (Bonanno; Lundorff).</div>`}
+function chemUpdate(L){const c=L.state&&L.state.chemistry;if(!c)return;
+  $('chemLive').innerHTML='<div class="chem">'+CHEM.map(([k,col,d])=>`<div class="row"><span>${k}</span><div class="t"><i style="width:${Math.round((c[k]||0)*100)}%;background:${col}"></i></div><span class="mono muted" style="font-size:11px;text-align:right">${Math.round((c[k]||0)*100)}</span><small class="lab">${d}</small></div>`).join('')+'</div>'
+    +'<div class="legend">Each month the good moments he has (play, hugs, friends, music, exercise, sunlight, his partner and children) release these; worry, grief and strain raise cortisol. A joy he has had often lifts him less.</div>'}
+function mindUpdate(L){const m=L.mind;if(!m)return;
+  $('mindLive').innerHTML=`<div class="legend" style="margin-top:0">On his mind now (what wins his attention, so what he talks from)</div>`
+    +(m.thoughts.length?m.thoughts.map(t=>`<p class="now-line" style="font-size:14px;margin:6px 0">${esc(t)}</p>`).join(''):'<p class="muted">nothing yet</p>')
+    +`<div class="legend">Who he thinks he is</div><p style="margin:4px 0 10px">${esc(m.self_model.join(' ')||'(still forming)')}</p>`
+    +`<div class="meter"><span>Guilt</span><div class="t"><i style="width:${Math.round(m.guilt*100)}%"></i></div><em>${m.guilt>0.4?'heavy':m.guilt>0.1?'some':'none'}</em></div>`
+    +`<div class="meter"><span>Pride</span><div class="t"><i style="width:${Math.round(m.pride*100)}%"></i></div><em>${m.pride>0.4?'warm':m.pride>0.1?'some':'none'}</em></div>`
+    +`<div class="legend">His conscience grows with age, warmth and his character; hurting someone brings guilt, helping brings quiet pride, and both shape what he learns to choose.</div>`}
+const PAT={steady:['steady','var(--good)'],criticism:['criticism','var(--warn)'],defensiveness:['defensive','var(--warn)'],contempt:['contempt','var(--bad)'],'pursue-withdraw':['pursue / withdraw','var(--bad)'],estranged:['estranged','var(--bad)']};
+function bondsUpdate(L){const b=L.bonds;if(!b)return;if(!b.length){$('bondsLive').innerHTML='<p class="muted">No one close yet.</p>';return}
+  $('bondsLive').innerHTML=b.slice(0,9).map(x=>{const [w,c]=PAT[x.pattern]||[x.pattern,'var(--muted)'];
+    return `<div class="ppl"><span><b>${esc(x.name)}</b> <small>${esc(x.relation)} · trust ${Math.round(x.trust*100)} · ${x.ratio}:1 good to bad · ${x.ruptures} rows, ${x.repairs} repairs${x.last?' · '+esc(x.last):''}</small></span><span class="bond-pat" style="color:${c}">${w}</span></div>`}).join('')
+    +'<div class="legend">Lasting relationships keep about five good moments to every bad one; when it falls toward one to one, criticism, defensiveness and contempt follow (Gottman). Repairs mend it. About 27% of adults are estranged from a relative (Pillemer).</div>'}
+function schoolUpdate(L){const c=L.schooling;if(!c)return;const sy=c.system;
+  const stage={home:'not at school yet',primary:'primary school',secondary:'secondary school',upper:'final school years',tertiary:'studying '+(c.course||''),done:'finished school'}[c.stage]||c.stage;
+  let h=`<p><b>${esc(c.region)}</b> · ${esc(stage)}${c.tutored?' · has a tutor':''}${c.dropped_out?' · dropped out':''}</p>
+    <div class="meter"><span>IQ</span><div class="t"><i style="width:${Math.round((c.iq-70)/75*100)}%"></i></div><em>${c.iq}</em></div>
+    <div class="meter"><span>Unsettled</span><div class="t"><i style="width:${Math.round(c.unsettled*100)}%"></i></div><em>${c.unsettled>0.35?'new place':c.unsettled>0.1?'settling':'settled'}</em></div>
+    <p style="margin:8px 0 4px"><small class="muted">Drawn to</small> ${c.favourite.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</p>`;
+  if(c.chosen.length)h+=`<p style="margin:4px 0"><small class="muted">Chose</small> ${c.chosen.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</p>`;
+  if(c.exam_percentile!=null)h+=`<p style="margin:4px 0">Sat ${esc(c.exam_name)}: better than ${c.exam_percentile}% of students.</p>`;
+  if(c.wanted)h+=`<p style="margin:4px 0">Wanted <b>${esc(c.wanted)}</b>; ${c.course?'studies <b>'+esc(c.course)+'</b>':'did not go on'}. <small class="muted">${c.why.map(esc).join('; ')}</small></p>`;
+  h+=`<div class="legend">Where he lives: school from ${sy.start}, exam pressure ${Math.round(sy.pressure*100)}%, ${Math.round(sy.tutoring*100)}% tutored, ${Math.round(sy.entry*100)}% go to university, cost ${sy.tuition<0.15?'nearly free':sy.tuition<0.5?'moderate':'high'}. Getting the course he wants depends on his result, his family's money and what people expect of someone like him.</div>`;
+  $('schoolLive').innerHTML=h}
+const BAIT=new Set(['outrage','looks','money','crisis']);
+function phoneUpdate(L){const o=L.online;if(!o)return;
+  if(!o.has_phone){$('phoneLive').innerHTML=`<p class="muted">No phone of his own yet (due about ${o.first_phone_at}). About ${o.hours} hours of screens a day.</p>`;return}
+  const feed=o.feed.map(x=>`<div class="post ${BAIT.has(x.topic)?'bait':''}"><small><span>${esc(x.topic)}</span><span>${x.seconds}s${x.liked?' · ♥':''}</span></small>${esc(x.text)}</div>`).join('');
+  const keep=$('phoneScr')?$('phoneScr').scrollTop:0;
+  $('phoneLive').innerHTML=`<div class="phone"><div class="notch"></div><div class="scr" id="phoneScr">${feed||'<p class="muted">nothing</p>'}</div></div>
+    <p style="margin:10px 0 4px"><b>${o.hours} h</b> a day · ${o.pickups} pickups · ${o.notifications} notifications${o.detox?' · <b>taking a break</b>':''}</p>
+    <div class="meter"><span>Habit</span><div class="t"><i style="width:${Math.round(o.habit*100)}%"></i></div><em>${o.habit>0.6?'compulsive':o.habit>0.3?'strong':'light'}</em></div>
+    <div class="meter"><span>Comparing</span><div class="t"><i style="width:${Math.round(o.comparison*100)}%"></i></div><em>${o.comparison>0.35?'a lot':o.comparison>0.15?'some':'little'}</em></div>
+    <p style="margin:6px 0"><small class="muted">His feed has learned</small> ${o.top_topics.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</p>
+    <div class="legend">One typical scroll this month (red: engagement bait). The feed serves more of whatever holds him. Sleep loss, comparison and cyberbullying are where the harm is; the average effect on mood is small, larger for heavy users (Orben &amp; Przybylski; Pew 2022).</div>`;
+  const sc=$('phoneScr');sc.scrollTop=keep;
+  if(!phoneUpdate.t&&!matchMedia('(prefers-reduced-motion: reduce)').matches)phoneUpdate.t=setInterval(()=>{const q=$('phoneScr');if(!q||q.matches(':hover'))return;if(q.scrollTop+q.clientHeight>=q.scrollHeight-2)q.scrollTop=0;else q.scrollTop+=1},45)}
+function mentalUpdate(L){const m=L.mental;if(!m)return;const dx=m.diagnosed;
+  const wired=[m.autism?`autistic${dx.autism!=null?' (diagnosed at '+dx.autism+')':' (not diagnosed)'}`:'',m.adhd?`ADHD${dx.ADHD!=null?' (diagnosed at '+dx.ADHD+')':' (not diagnosed)'}`:''].filter(Boolean);
+  let h=`<p>${wired.length?esc(wired.join(' · ')):'Neurotypical.'}${m.self_harm?' · <b>self-harming, in secret</b>':''}</p>`;
+  h+=m.active.length?m.active.map(a=>`<div class="ppl"><span><b>${esc(a.condition)}</b> <small>since ${a.since_years}</small></span><span class="st">${a.treated?'getting help':'untreated'}</span></div>`).join(''):'<p class="muted">Nothing active right now.</p>';
+  if(m.history.length)h+=`<div class="legend" style="margin:8px 0 4px">Before</div>`+m.history.slice(-5).map(x=>`<div class="ppl gone"><span>${esc(x[0])} <small>${x[1]}–${x[2]}</small></span><span class="st">${x[3]?'treated':''}</span></div>`).join('');
+  if(m.others.length)h+=`<div class="legend" style="margin:8px 0 4px">People around him</div>`+m.others.slice(0,6).map(x=>`<div class="ppl"><span>${esc(x.name)} <small>${esc(x.relation)} · ${x.conditions.map(esc).join(', ')}</small></span><span class="st">${x.struggling?'struggling':''}</span></div>`).join('');
+  h+='<div class="legend">Rates follow surveys: depression ~20-30% over a life, anxiety ~30%, autism ~1 in 31, ADHD ~5-10%. Help depends on healthcare and stigma where he lives; treatment roughly doubles how fast an episode ends.</div>';
+  $('mentalLive').innerHTML=h}
+function biasUpdate(L){const b=L.prejudice;if(!b)return;const f=Object.entries(b.faced);
+  let h=f.length?`<p>${f.map(([k,v])=>`<span class="tag">${esc(k)} ×${v}</span>`).join('')}</p>`:'<p class="muted">Nothing aimed at him so far.</p>';
+  if(b.recent.length)h+=b.recent.slice(-4).reverse().map(t=>`<p class="now-line" style="font-size:13px;margin:4px 0">${esc(t)}</p>`).join('');
+  h+=`<div class="meter"><span>His own bias</span><div class="t"><i style="width:${Math.round(b.bias*100)}%"></i></div><em>${b.bias>0.3?'high':b.bias>0.15?'some':'low'}</em></div>
+    <p style="margin:6px 0">Acted on it ${b.acted_on_bias}× · stood up for someone ${b.stood_up}×${b.out?' · came out':b.closeted?' · closeted':''}</p>
+    <div class="legend">Each incident adds stress (Pascoe &amp; Richman 2009); hiring bias cuts callbacks (Quillian 2017). Prejudice is learned at home, in society and in feeds, and unlearned through friends from other backgrounds (Pettigrew &amp; Tropp 2006).</div>`;
+  $('biasLive').innerHTML=h}
+const HORM_ORDER=['testosterone','estrogen','DHEA','growth hormone','melatonin','cortisol reactivity','dopamine gain','insulin sensitivity','prolactin'];
+function hardUpdate(L){const h=L.hardships;if(!h)return;const tags=[];
+  if(h.smoker)tags.push('smokes');else if(h.ever_smoked)tags.push('ex-smoker');if(h.vapes)tags.push('vapes');
+  if(h.cannabis>0.6)tags.push('daily cannabis');if(h.gambling>0.5)tags.push('problem gambling');if(h.opioids)tags.push('opioid dependence');
+  if(h.in_prison)tags.push('in prison');else if(h.record)tags.push('criminal record');if(h.debt_crisis)tags.push('in debt crisis');if(h.displaced)tags.push('displaced by war');if(h.disabled)tags.push('uses a wheelchair');
+  let x=`<p>${tags.length?tags.map(t=>`<span class="tag">${esc(t)}</span>`).join(''):'<span class="muted">Nothing weighing on him here.</span>'}</p>`;
+  x+=`<div class="meter"><span>Faith</span><div class="t"><i style="width:${Math.round(h.faith*100)}%"></i></div><em>${h.attends?'attends':h.faith>0.3?'private':'none'}</em></div>`;
+  if(h.recent.length)x+=h.recent.slice(-5).reverse().map(([a,t])=>`<p style="margin:3px 0;font-size:13px"><small class="mono muted">${Math.floor(a)}y</small> ${esc(t)}</p>`).join('');
+  x+='<div class="legend">Smoking, vaping, cannabis, gambling and opioids; car crashes (the top killer at 5–29); crime suffered and committed, and prison (a record halves job callbacks); debt; war; a pandemic; and faith, which brings community.</div>';
+  $('hardLive').innerHTML=x}
+function hormUpdate(L){const h=L.hormones;if(!h)return;const lv=h.levels||{};
+  let x=`<p><b>${h.height_cm} cm</b>${h.puberty_onset!=null?` · puberty began at ${h.puberty_onset}`:''}${h.menarche!=null?` · first period at ${h.menarche}`:''}${h.menopause_age!=null?` · menopause around ${h.menopause_age}`:''}</p>`;
+  x+=HORM_ORDER.filter(k=>lv[k]!=null).map(k=>`<div class="meter"><span>${esc(k)}</span><div class="t"><i style="width:${Math.round(lv[k]*100)}%"></i></div><em>${Math.round(lv[k]*100)}</em></div>`).join('');
+  const tags=[...(h.now||[])];if(h.hrt)tags.push('on HRT');if(h.low_t)tags.push('low testosterone');if(h.sad)tags.push('seasonal depression');
+  if(tags.length)x+=`<p style="margin:8px 0">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</p>`;
+  x+=`<p class="muted" style="font-size:12px;margin:4px 0">Falls asleep naturally around ${Math.floor(h.chronotype)}:${String(Math.round((h.chronotype%1)*60)).padStart(2,'0')} · sleep lost to hormones ${Math.round(h.sleep_cost*100)}%</p>`;
+  if(h.recent.length)x+=h.recent.slice(-4).reverse().map(([a,t])=>`<p style="margin:3px 0;font-size:13px"><small class="mono muted">${Math.floor(a)}y</small> ${esc(t)}</p>`).join('');
+  x+='<div class="legend">Mini-puberty in infancy, adrenarche at 6–8, puberty on his own timing, a teenage body clock 2 hours late, bone peaking at 30, menopause around 51, testosterone falling 1% a year after 30, earlier and broken sleep in old age.</div>';
+  $('hormLive').innerHTML=x}
+function healthUpdate(L){const h=L.illness;if(!h)return;
+  let x=h.active.length?h.active.map(a=>`<div class="ppl"><span><b>${esc(a.condition)}</b> <small>since ${a.since_years}</small></span><span class="st">${a.diagnosed?'diagnosed':'not yet noticed'}</span></div>`).join(''):'<p class="muted">No long-term conditions.</p>';
+  x+=`<div class="meter"><span>Pain</span><div class="t"><i style="width:${Math.round(h.pain*100)}%"></i></div><em>${h.pain>0.3?'daily':h.pain>0.1?'some':'none'}</em></div>
+    <div class="meter"><span>Sleep lost</span><div class="t"><i style="width:${Math.round(h.sleep_cost*100)}%"></i></div><em>${h.sleep_cost>0.3?'a lot':h.sleep_cost>0.1?'some':'little'}</em></div>
+    <div class="meter"><span>Weight</span><div class="t"><i style="width:${Math.round(h.adiposity*100)}%"></i></div><em>${h.obese?'obese':h.adiposity>0.5?'overweight':'healthy'}</em></div>`;
+  if(h.recent.length)x+=`<div class="legend" style="margin:8px 0 4px">Lately</div>`+h.recent.slice(-5).reverse().map(([a,t])=>`<p style="margin:3px 0;font-size:13px"><small class="mono muted">${Math.floor(a)}y</small> ${esc(t)}</p>`).join('');
+  if(h.history.length)x+=`<p class="muted" style="margin:6px 0;font-size:12px">Got over: ${h.history.map(r=>esc(r[0])+' ('+r[1]+'–'+r[2]+')').join(', ')}</p>`;
+  x+='<div class="legend">Each age brings its own illnesses, at survey rates: childhood asthma and eczema, migraine and IBS in young adults, insomnia, sleep apnoea and high blood pressure in midlife, cancer, stroke, arthritis and cataracts later. Pain and lost sleep raise the risk of depression.</div>';
+  $('healthLive').innerHTML=x}
+function seasonUpdate(L){const z=L.seasons;if(!z)return;
+  let h=`<p><b>${esc(z.season[0].toUpperCase()+z.season.slice(1))}</b>${z.yearning?` · <span class="now-line" style="font-size:14px">“${esc(z.yearning)}”</span>`:''}</p>`;
+  h+=z.recent.slice(-6).reverse().map(([a,t,v])=>`<div class="ppl"><span><small class="mono">${Math.floor(a)}y</small> ${esc(t)}</span><span class="st" style="color:${v>0?'var(--good)':'var(--bad)'}">${v>0?'joy':'sorrow'}</span></div>`).join('')||'<p class="muted">Nothing yet.</p>';
+  if(z.regrets.length)h+=`<div class="legend" style="margin:10px 0 4px">What he regrets (inaction regrets grow with time; Gilovich, Pink)</div>`+z.regrets.map(r=>`<div class="ppl"><span>${esc(r.text)} <small>${esc(r.kind)} · since ${r.since}</small></span><span class="st">${Math.round(r.weight*100)}%</span></div>`).join('');
+  const bits=[];if(z.pregnancy_losses)bits.push(`${z.pregnancy_losses} pregnancy loss${z.pregnancy_losses>1?'es':''}`);if(z.scams)bits.push(`scammed ${z.scams}× (lost ${Math.round(z.scam_lost*100)}% of his means)`);if(z.empty_nest!=null)bits.push(`empty nest at ${z.empty_nest}`);
+  if(bits.length)h+=`<p style="margin:8px 0">${bits.map(esc).join(' · ')}</p>`;
+  if(z.testosterone>0.05)h+=`<div class="meter"><span>Testosterone</span><div class="t"><i style="width:${Math.round(z.testosterone*100)}%"></i></div><em>${z.fatherhood_drop>0.1?'down '+Math.round(z.fatherhood_drop*100)+'% (father)':'baseline'}</em></div>`;
+  h+='<div class="legend">Each age has its own joys and sorrows. Wellbeing dips in midlife and lifts after 60 (Blanchflower; Carstensen). Fathers\' testosterone falls 26-34% (Gettler 2011), and ~10% have postnatal depression (Paulson 2010).</div>';
+  $('seasonLive').innerHTML=h}
+function workUpdate(L){const w=L.work;if(!w)return;let h;
+  if(w.retired)h='<p><b>Retired.</b></p>';else if(w.on_leave)h='<p><b>Off work</b> after burning out.</p>';
+  else if(w.searching_months)h=`<p><b>Looking for work</b> for ${w.searching_months} months: ${w.applications} applications, ${w.rejections} rejections.</p>`;
+  else if(L.state.economy.employed>0.5)h=`<p><b>${esc(w.title)}</b>, ${w.tenure_years} years in. About ${w.hours} hours a week.</p>`;
+  else h='<p class="muted">Not working yet.</p>';
+  h+=`<div class="meter"><span>Burnout</span><div class="t"><i style="width:${Math.round(w.burnout*100)}%"></i></div><em>${w.burnout>0.6?'high':w.burnout>0.3?'building':'low'}</em></div>
+     <div class="meter"><span>Level</span><div class="t"><i style="width:${w.level*25}%"></i></div><em>${w.level}/4</em></div>
+     <div class="legend">Long hours speed promotions and cost sleep; 55+ a week raises stroke risk ×1.33 (Kivimäki 2015). A long job hunt leaves a lasting dent (Lucas 2004).</div>`;
+  $('workLive').innerHTML=h}
+
+// ---------------------------------------------------------------- the live view
+function collapse(log){const out=[];for(const e of log){const p=out[out.length-1];if(p&&p.text===e.text){p.n++;p.from=e.age}else out.push({text:e.text,age:e.age,from:e.age,n:1})}return out}
+async function poll(){if(!RUN)return;let L;try{L=await api('/api/live?run='+encodeURIComponent(RUN))}catch(e){$('status').textContent=e.message;return}
+  if(L.status==='starting'){$('status').textContent='starting (loading PyTorch)';return}
+  $('status').textContent=`${RUN} · ${L.status} on ${L.device} · ${Math.round(L.elapsed_s/60)} min${L.gpu_peak_gb?' · GPU peak '+L.gpu_peak_gb+' GB':''}`;
+  const m=L.model;setNet(m);loadTalk();brainUpdate(L);peopleUpdate(L);chemUpdate(L);workUpdate(L);mindUpdate(L);bondsUpdate(L);schoolUpdate(L);phoneUpdate(L);mentalUpdate(L);biasUpdate(L);seasonUpdate(L);healthUpdate(L);hormUpdate(L);hardUpdate(L);storyUpdate(L);choicesUpdate(L);
+  $('now').innerHTML=[['age',`${Math.floor(L.age_months/12)}y ${L.age_months%12}m`],['stage',L.stage_label],['wellbeing',L.wellbeing.toFixed(3)],['parameters',(m.params/1e6).toFixed(m.params<1e8?2:0)+'M'],['shape',`${m.layers} × ${m.d}, ${m.heads} heads`],['alive',L.alive?'yes':'died: '+L.cause_of_death]].map(([k,v])=>`<div><b>${esc(v)}</b><span>${k}</span></div>`).join('');
+  $('growthBar').innerHTML=L.schedule.map(s=>`<div class="${m.params>=s.params?'done':''} ${s.within_cap?'':'cap'}" title="age ${s.age}: ${(s.params/1e6).toFixed(1)}M">${s.age}y</div>`).join('');
+  $('growthNote').textContent=`growth milestones by age: lit = reached; faded = beyond the ${L.profile} cap of ${(L.cap/1e6).toFixed(0)}M · ${L.optimizer||''}`;
+  chart($('cLoss'),[{data:L.curves.lm_loss,color:css('--acc')},{data:L.curves.eval_loss,color:css('--warn')}]);
+  chart($('cRew'),[{data:L.curves.reward,color:css('--acc')},{data:L.curves.wellbeing,color:css('--good')},{data:L.curves.informative||[],color:css('--acc2')}],{y0:-1,y1:1});
+  const nw=L.now;if(nw)$('nowLive').innerHTML=`<p class="now-line">${esc(nw.line)}</p><table>
+    <tr><td class="muted">when</td><td>${esc(nw.when)}</td></tr><tr><td class="muted">where</td><td>${esc(nw.place)}, ${esc(nw.doing)}</td></tr>
+    <tr><td class="muted">with</td><td>${esc(nw.with.join(', ')||'nobody')}</td></tr><tr><td class="muted">feels</td><td>${esc([nw.body,...nw.feelings].filter(Boolean).join(', '))}</td></tr>
+    <tr><td class="muted">on his mind</td><td>${esc(nw.mind||'nothing in particular')}</td></tr></table>
+    <div class="legend">Every decision and much of what he hears opens with this line, so he learns from the moment he is in as well as from memory.</div>`;
+  const mm=L.memory;$('memLive').innerHTML=mm?`<div class="stat"><div><b>${mm.kept}</b><span>memories kept</span></div><div><b>${mm.forgotten}</b><span>forgotten</span></div><div><b>${mm.mean_detail}</b><span>detail left</span></div><div><b>${mm.mean_strength}</b><span>strength</span></div><div><b>${mm.distorted}</b><span>rewritten by recall</span></div></div>
+    <table style="margin-top:10px"><tr><th>age</th><th>what happened</th><th>what he remembers now</th><th class="lab">strength</th><th class="lab">detail</th></tr>${mm.samples.map(m=>`<tr><td class="mono">${m.age_years}y</td><td>${esc(m.true)}</td><td>${esc(m.recalled)}${m.distorted?' <span class="neg">(misremembered)</span>':''}${m.id&&L.brain?` <a href="/brain?run=${encodeURIComponent(RUN)}&focus=${encodeURIComponent(m.id)}">map</a>`:''}</td><td class="mono lab">${m.strength}</td><td class="mono lab">${m.detail}</td></tr>`).join('')}</table>
+    <div class="legend lab">Episodes fade (strongest feelings last longest; stress and decline speed forgetting). Skills fade only through disuse. Recalling a memory strengthens it and can rewrite it.</div>`:'<span class="muted">(this run predates memory)</span>';
+  const fr=L.friends||[];
+  $('friendsLive').innerHTML=fr.length?'<table><tr><th>name</th><th>with him</th><th>close</th><th>kind</th><th>risky</th><th>studious</th></tr>'+fr.map(f=>`<tr style="${f.present?'':'opacity:.45'}"><td>${esc(f.name)}${f.online?' (online)':''}${f.listed_by_user?' *':''}</td><td class="mono">${f.since_years}y – ${f.until_years??'now'}${f.present?'':' (gone)'}</td><td class="mono">${f.closeness}</td><td class="mono">${f.kindness}</td><td class="mono">${f.risk}</td><td class="mono">${f.studiousness}</td></tr>`).join('')+'</table><div class="legend">* listed by you; the rest were seeded</div>':'<span class="muted">no friends in this life</span>';
+  const sc=L.school;$('schoolLive').innerHTML=sc?`<div class="stat"><div><b>${sc.studying?'yes':'no'}</b><span>studying</span></div><div><b>${sc.effectiveness}</b><span>teaching reach</span></div><div><b>${sc.belonging}</b><span>belonging</span></div><div><b>${sc.academic}</b><span>academic</span></div><div><b>${sc.credential==1?'degree':sc.credential>0?'vocational':'none'}</b><span>credential</span></div></div>`+
+    (L.tiers?'<table class="lab" style="margin-top:10px"><tr><th>problem tier</th><th>from</th><th>pass</th><th>tried</th></tr>'+L.tiers.map(t=>`<tr><td>${t.name}${t.mastered?' <span class="pos">✓</span>':''}</td><td class="mono">${t.min_age}</td><td class="mono">${t.pass_rate}</td><td class="mono">${t.tried}</td></tr>`).join('')+'</table>':''):'<span class="muted">(this run predates school tracking)</span>';
+  $('heard').textContent=L.heard||'';$('babble').textContent=L.babble||'(not measured yet)';
+  $('items').innerHTML=(L.items||[]).slice().reverse().map(it=>`<div class="item"><span class="tag">${it.age}y</span><span class="tag">${it.kind}${it.domain?' / '+it.domain:''}</span><b>${esc(it.key)}</b>
+    <pre style="margin-top:6px">${esc(it.prompt)}</pre><div class="resp">${it.responses.map((r,i)=>`<span title="reward ${it.rewards[i]}">${esc(JSON.stringify(r))} <b class="${it.rewards[i]>0?'pos':it.rewards[i]<0?'neg':''}">${(+it.rewards[i]).toFixed(2)}</b></span>`).join('')}${it.lived!=null?`<span class="lived" title="the answer he lived">lived ${esc(JSON.stringify(it.lived))}</span>`:''}</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">${it.kind==='problem'?`answer ${it.answer}: he was ${it.outcome}`:`he chose: ${esc(it.choice)} → ${esc(Object.entries(it.outcome).map(([k,v])=>`${k} ${v>0?'+':''}${v}`).join(', ')||'no effect')}${it.real_outcome!=null?`; felt at the time ${(+it.lived_reward).toFixed(2)}, real outcome ${it.real_outcome}`:''}${it.later?`; later, in ${it.later.months} months: ${esc(Object.entries(it.later.deltas).map(([k,v])=>`${k} ${v>0?'+':''}${v}`).join(', '))}`:''}`}; wellbeing ${it.wellbeing_change>=0?'+':''}${it.wellbeing_change}${it.brain_id?` · <a href="/brain?run=${encodeURIComponent(RUN)}&focus=${encodeURIComponent(it.brain_id)}">see in brain map</a>`:''}</div></div>`).join('')||'<span class="muted">nothing yet</span>';
+  $('log').innerHTML=collapse((L.log||[]).slice().reverse()).map(e=>`<div><span class="age">${e.n>1?`${e.from.toFixed(1)}–${e.age.toFixed(1)}y`:e.age.toFixed(1)+'y'}</span><span>${esc(e.text)}</span>${e.n>1?`<span class="x">×${e.n}</span>`:''}</div>`).join('');
+  $('stateCards').innerHTML=Object.entries(L.state).filter(([g])=>g!=='genes').map(([g,vals])=>`<div class="card"><h2>${g}</h2><div class="bars">${Object.entries(vals).map(([k,v])=>`<div class="row"><span>${k.replace(/_/g,' ')}</span><div class="t"><i style="width:${(v*100).toFixed(1)}%"></i></div><span>${v.toFixed(2)}</span></div>`).join('')}</div></div>`).join('')+
+    `<div class="card"><h2>risk genes</h2><div style="display:flex;gap:6px;flex-wrap:wrap">${L.state.genes.loaded.map((l,i)=>`<span class="pill ${L.state.genes.on[i]?'bad':''}">gene ${i+1}: ${l?(L.state.genes.on[i]?'on':'loaded, off'):'not loaded'}</span>`).join('')}</div></div>`;
+  if(!document.activeElement||!document.activeElement.closest('#ftable')){
+    $('ftable').innerHTML='<tr><th>factor</th><th>value</th><th>from</th><th>change</th></tr>'+CAT.factors.map(f=>{const v=L.factors[f.key];if(!v)return '';return `<tr><td>${esc(f.label)}<br><span class="muted" style="font-size:11px">${esc(CAT.stages[f.stage])}</span></td><td>${esc(fmtVal(f.ui,v.value))}</td><td>${v.source}</td><td><input type="number" min="0" max="1" step="0.05" style="width:70px" data-k="${f.key}"> <button data-go="${f.key}">set</button></td></tr>`}).join('');
+    document.querySelectorAll('[data-go]').forEach(b=>b.onclick=async()=>{const v=document.querySelector(`[data-k="${b.dataset.go}"]`).value;if(v!=='')await api('/api/intervene',{run:RUN,key:b.dataset.go,value:+v})});
+  }
+}
+init();
+</script>
+</body>
+</html>
