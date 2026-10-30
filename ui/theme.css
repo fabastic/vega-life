@@ -1,0 +1,76 @@
+/* Vega: one look for every page. Deep blue-black with teal, violet and pink light (the colours of the Active Theory
+   site), a sand-coloured wordmark and a fine dither (from Sondaven), and a playful streak: the neurons notice the cursor. */
+:root{
+ --bg:#03070d;--bg2:#070e17;--panel:rgba(8,17,28,.84);--panel-solid:#0b1722;--ink:#e4f3f6;--muted:#6f9aa8;--faint:#3d5d6a;
+ --line:#12303f;--line2:#1d4558;--bar:#0d1c29;--acc:#3fe0d0;--acc2:#b58cff;--good:#8be06a;--bad:#ff5c8a;--warn:#ffd36b;
+ --neg:#ff5c8a;--pos:#8be06a;--glow:0 0 0 1px rgba(63,224,208,.4),0 0 18px rgba(63,224,208,.12);--shadow:0 2px 0 rgba(0,0,0,.35);
+ --grad:linear-gradient(90deg,#3fe0d0,#6fb4ff 40%,#b58cff 70%,#ff7ac8);--r:5px;--sand:#d9bb87;
+ --k-self:#ffffff;--k-stage:#6f9aa8;--k-factor:#ffd36b;--k-state:#3fe0d0;--k-trait:#b58cff;--k-situation:#6fb4ff;--k-choice:#8be06a;
+ --k-consequence:#ff5c8a;--k-event:#ff9f5c;--k-memory:#ff7ac8;--k-person:#ffb86b;--k-skill:#7fd0ff;--k-milestone:#c9d8e0;
+ --mono:"Cascadia Code","JetBrains Mono",ui-monospace,Consolas,monospace;--sans:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+ --block:"Arial Black","Segoe UI Black",Impact,sans-serif;
+ color-scheme:dark}
+:root[data-theme="light"]{
+ --bg:#e8f3f5;--bg2:#dcebee;--panel:rgba(250,254,255,.92);--panel-solid:#fafeff;--ink:#0b1c24;--muted:#477080;--faint:#8aa8b3;
+ --line:#c3dbe1;--line2:#a6c6cf;--bar:#d6e8ec;--acc:#0a8a86;--acc2:#7a4fe0;--good:#3f8f1f;--bad:#d4306a;--warn:#946a00;
+ --neg:#d4306a;--pos:#3f8f1f;--glow:0 0 0 1px rgba(10,138,134,.4);--shadow:0 2px 0 rgba(10,60,80,.07);
+ --grad:linear-gradient(90deg,#0a8a86,#2f6fd0 40%,#7a4fe0 70%,#d4306a);--sand:#8a6b2a;
+ --k-self:#0b1c24;--k-stage:#477080;--k-factor:#946a00;--k-state:#0a8a86;--k-trait:#7a4fe0;--k-situation:#2f6fd0;--k-choice:#3f8f1f;
+ --k-consequence:#d4306a;--k-event:#c8601a;--k-memory:#c2459a;--k-person:#c8801a;--k-skill:#1f7fb8;--k-milestone:#46606a;
+ color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+/* a fine dither over everything, like the grain in the print */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.5;
+ background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+:root[data-theme="light"] body::after{opacity:.25;background:repeating-linear-gradient(0deg,rgba(80,60,20,.06) 0 1px,transparent 1px 3px)}
+a{color:var(--acc)}
+::selection{background:var(--acc);color:var(--bg)}
+.topbar{display:flex;gap:10px 16px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);
+ background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand svg{width:30px;height:30px;flex:none;transition:transform .5s cubic-bezier(.3,1.6,.5,1)}
+.brand:hover svg{transform:rotate(90deg) scale(1.12)}
+/* the wordmark: solid block letters with comb-stripe edges */
+.brand b{font:400 20px/1 var(--block);letter-spacing:.14em;color:transparent;
+ background:repeating-linear-gradient(90deg,var(--sand) 0 3px,color-mix(in srgb,var(--sand) 45%,transparent) 3px 4px);-webkit-background-clip:text;background-clip:text}
+.brand small{display:block;font:500 9.5px/1.2 var(--mono);color:var(--muted);letter-spacing:.2em;margin-top:5px;text-transform:uppercase}
+.seg{display:inline-flex;padding:3px;border:1px solid var(--line2);border-radius:var(--r);background:var(--bar);gap:2px}
+.seg button{border:0;background:transparent;color:var(--muted);border-radius:3px;padding:5px 14px;font:500 11.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
+.seg button:hover{color:var(--ink);box-shadow:none}
+.seg button.on{background:var(--acc);color:#03070d;box-shadow:none}
+.seg button.on::before{content:"";display:inline-block;width:6px;height:6px;background:var(--acc2);margin-right:8px;vertical-align:1px;animation:blink 1.4s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.spacer{flex:1}
+button,.btn{background:var(--bar);color:var(--ink);border:1px solid var(--line2);border-radius:var(--r);padding:6px 12px;cursor:pointer;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;transition:transform .18s cubic-bezier(.3,1.8,.5,1),border-color .15s,background .15s}
+button:hover:not(:disabled){border-color:var(--acc);transform:translateY(-2px) rotate(-.6deg)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--grad);color:#03070d;border-color:transparent;font-weight:700}
+button.primary:hover:not(:disabled){filter:brightness(1.15) saturate(1.2)}
+button.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,var(--line2))}
+button.danger:hover:not(:disabled){border-color:var(--bad)}
+button.icon{width:34px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+input,select,textarea{background:var(--bg2);color:var(--ink);border:1px solid var(--line2);border-radius:var(--r);padding:5px 8px;font:13px var(--sans)}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:var(--glow)}
+input[type=checkbox]{accent-color:var(--acc)}
+input[type=range]{accent-color:var(--acc);padding:0;background:transparent;border:0;box-shadow:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0;box-shadow:var(--shadow);position:relative}
+.card h2{font:600 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h2::before{content:"";width:8px;height:8px;background:var(--acc);flex:none;transition:transform .4s}
+.card:hover h2::before{transform:rotate(45deg) scale(1.2);background:var(--acc2)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 10.5px var(--mono);padding:2px 9px;border-radius:3px;border:1px solid var(--line2);color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.08em}
+.pill.live{color:var(--good);border-color:color-mix(in srgb,var(--good) 55%,transparent)}
+.pill.live::before{content:"";width:7px;height:7px;background:var(--good);animation:blink 1s steps(2) infinite}
+.pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
+/* the cursor leaves a ring that swells over things you can press */
+#cur{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:1px solid var(--acc);border-radius:50%;pointer-events:none;z-index:60;
+ transition:width .2s,height .2s,margin .2s,background .2s,border-color .2s;mix-blend-mode:normal;opacity:0}
+#cur.on{opacity:.9}
+#cur.big{width:46px;height:46px;margin:-23px 0 0 -23px;background:color-mix(in srgb,var(--acc2) 22%,transparent);border-color:var(--acc2)}
+@media (pointer:coarse){#cur{display:none}}
+@media (prefers-reduced-motion:reduce){.pill.live::before,.seg button.on::before{animation:none}#cur{display:none}button:hover:not(:disabled){transform:none}}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--line2);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
