@@ -1,7 +1,7 @@
 # Round 1: what was built, what is left, what could come next
 
 Status at the end of round 1 (2026-10-30):
-- **Tests:** 127+ pass. The final full run on the very latest code was still going when this was written.
+- **Tests:** all 131 pass on the final code.
 - **GPU:** nothing in this round has been run in a real laptop_xl life yet.
 - **vega-9:** stopped at 79.5 years and resumable.
 
@@ -88,6 +88,143 @@ Status at the end of round 1 (2026-10-30):
 - Teen pregnancy is set directly and skips the pregnancy-loss outcomes.
 - The main page now has many cards and needs a layout pass, for example tabs or a Simple/Lab split for the new
   cards.
+
+### Review plan: fixes required now
+
+This section is a review plan added after round 1. Where it overlaps with code that already exists, a **Now:** line
+says what is there today, so the work starts from the right place.
+
+#### 1. Wire the "dead-state" events (moments that only emit text)
+Text that does not change his state trains the model on things that did not happen. Each item below needs a real
+state change.
+
+**Affair (`bonds.py`, `seasons.py`)**
+- Add an `active_affair` flag, with a monthly chance of discovery: `base_rate * (1 - partner_trust)`.
+- On discovery:
+  - trust drops by 0.65
+  - the bond moves to contempt and defensiveness
+  - the chance of divorce rises to about 0.75 over the next 6 months
+- Every undiscovered month adds guilt through the conscience.
+
+**Divorce late in life (`family.py`, `bonds.py`)**
+- The ex-partner leaves the household.
+- Shared income and expenses are split, and savings are divided by a settlement factor.
+- The bond becomes `ex_partner`, with some conflict left over.
+
+**Wedding and moving in (`family.py`)**
+- The couple merge into one household and pool income, which buffers against poverty in `hardships.py`.
+- Leaving becomes harder (a higher friction threshold before the bond can break).
+
+**Care home (`illness.py`, `seasons.py`)**
+- Set `residence_type = "care_facility"`.
+- His daily work and travel routines stop, and his autonomy is capped.
+- Each month, his bonds with family who don't visit weaken.
+
+**Dyslexia and glasses (`schooling.py`, `illness.py`)**
+- Dyslexia becomes a trait he is born with, like ADHD and autism in `mental.py`. It slows reading and exam progress
+  by about 20% unless he has tutoring or accommodations after diagnosis.
+- Uncorrected short-sightedness holds back his schooling until he gets glasses.
+
+**Bond triggers across modules (`seasons.py` to `bonds.py`)**
+- When a friend or sibling has a major event (divorce, illness, a birth), `bonds.py` gets a callback.
+- He either invests time and empathy, which strengthens the bond at a cost to his energy and screen hours, or
+  ignores it, and the bond drifts toward estrangement.
+
+#### 2. Replace number scraping and template thoughts (`conscious.py`, `selftalk.py`)
+- **Scoring self-questions.** Today a reply is scored by the first number in it, which rewards putting a number
+  first rather than being right. Replace this with one of:
+  - a linear probe on the model's hidden state
+  - cosine similarity between the reply's embedding and the true state vector
+
+  **Now:** the score is verifiable but shallow. A probe or embedding score must stay verifiable, so no judge model.
+- **Template thoughts.** Fade the template lines ("I am shy") from always used at 3 years to never used by 6. After
+  that, the global workspace passes the modules' numbers to the network, and he writes his own inner monologue.
+
+  **Now:** every thought is a template at every age.
+
+#### 3. Fix how mood and deaths drift (`illness.py`, `mental.py`, `character.py`)
+**Mood is positive in 67% of months against Gallup's 74%.** Add a return to his usual mood: negative deltas shrink
+(×0.75 a month), so small hardships fade within 3-6 months.
+
+**Now:**
+- `character.py` already pulls his mood baseline back over about 24 months.
+- `world.py` fades the effects of lived choices.
+- The new modules' `apply(..., fades=True)` calls fade only the states listed in `FADE`.
+
+So the fix is to extend fading to every new negative effect, and to check that recovery takes 3-6 months.
+
+**30% of deaths are "natural causes", and life expectancy is 76.5.**
+- Replace the catch-all with a Gompertz-Makeham hazard tied to wear in `illness.py`: heart and blood vessels,
+  metabolic syndrome, frailty. Every death then has a named cause.
+- Lower the baseline rates of high blood pressure and stroke by 12-15%. Make them depend on adiposity, pollution
+  (µg/m³) and chronic cortisol.
+
+**Now:** the hazard is Gompertz with multipliers from health, and illness moves risk onto the sick through
+`mortality_norm`.
+
+**Teen pregnancy** should go through the same pregnancy steps in `family.py`: miscarriage, stillbirth, maternal
+complications and the hormonal crash after birth. **Now:** it sets `expecting` directly.
+
+#### 4. Brain map at scale
+- Group the map into 64-128 large clusters, one per region or module.
+- Drive edge thickness and glow from how much each cluster's activity varies and how much gradient flows through it.
+- Use instanced rendering.
+
+**Now:** the map draws his *life graph* (events, choices, people, states), not the network's weights, and caps it at
+about 250 nodes in detail view. A view of the network's weights would be a second, separate map. That second map is
+what this item describes.
+
+### Review plan: what to add next (systems for the experiments)
+
+#### 1. Sleep and memory replay (needed for scaling toward 1B)
+Between months, run an offline consolidation pass:
+1. Take the 5 most salient memories of the month (highest reward, guilt or trauma).
+2. Recombine them with older core memories.
+3. Run 50-100 fast training steps with no new input.
+
+This steadies the weights, moves recent experience into long-term parameters, and produces a distorted "dream"
+text stream.
+
+**Now:** `memory.py` strengthens salient memories during sleep, but the network does not train on replay.
+
+#### 2. Big Five that keep changing (trait vs. state)
+A 5-number personality (openness, conscientiousness, extraversion, agreeableness, neuroticism) that starts from
+inherited priors and changes over his life:
+
+`Δtrait = η(age) · salience · event_vector`
+
+- η is high before 18 and falls sharply toward 30.
+- Severe childhood bullying permanently shifts neuroticism and agreeableness.
+- Becoming a parent nudges conscientiousness and warmth.
+
+**Now:** `character.py` already has innate Big Five seeds (about half the trait) plus a part formed by his
+circumstances, with plasticity that falls with age. What's missing is the event-driven, salience-weighted part.
+
+#### 3. A fork-and-ablate lab (`experiment_runner.py`)
+- **Snapshot and fork:** at any month (for example, vega-9 at 14), save the exact Python state and the network
+  weights together.
+- **Counterfactual branches:** run a control branch and an intervention branch from the same seed and weights, in
+  parallel. Example interventions: sudden poverty, removing a parent, turning off the conscience reward.
+- **Measure** how far they diverge: his self-model, his speech, and the brain map.
+
+**Now:** `resume.pt` already saves the whole life and the weights, and resuming is bit-identical. Forking means
+copying a resume point into two run folders and applying an override to one.
+
+The GPU fits one training run at a time, so branches run one after the other, or as small models on the CPU.
+
+#### 4. A career and money loop across generations (`economy.py`)
+- Map his finished education, IQ and hiring bias (`prejudice.py`) to an occupation tier. The tier sets his income
+  path, autonomy, burnout rate and layoff chance.
+- Household cash flow becomes a continuous financial-stress level. Chronic shortfall:
+  - blocks healthcare, leaving conditions undiagnosed
+  - forces cheaper housing with more pollution
+  - feeds anxious thoughts into `conscious.py`
+
+**Now:** `career.py` has hours, promotion levels and burnout, but no occupations or fields. Wealth and income are
+single numbers.
+
+**Lower priority until these are in:** cosmetic features such as pets with personalities or the cost of climate
+insurance.
 
 ### From before this round
 - The `SURROUNDINGS.md` proposals are unbuilt.
