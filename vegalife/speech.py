@@ -169,7 +169,7 @@ class Speech:
         if self.present is not None and y >= 3:      # someone asks him about himself; the true answer is said back
             from .selftalk import conversation
             cs = getattr(p, "conscious", None)
-            if cs is not None and cs.thoughts:                      # his own inner voice, as he would put it
+            if cs is not None and cs.line():                        # his thoughts, or (from 6) his raw state
                 life.append(cs.line())
                 size += len(life[-1]) + 1
             for _ in range(1 if y < 6 else 6):
