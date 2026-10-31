@@ -138,7 +138,7 @@ class Hardships:
                 self.fatal = "an overdose"
                 self._say(p, "dies of an overdose", -1.0, "", out)
                 return out
-            if r.random() < 0.01 * F["healthcare_access"]:
+            if r.random() < 0.01 * p.care(F):
                 self.opioids = False
                 self._say(p, "gets into treatment and comes off opioids", 0.7, "", out)
         # --- the road --------------------------------------------------------------------------------------------
