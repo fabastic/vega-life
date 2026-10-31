@@ -229,6 +229,9 @@ body[data-view="lab"] .simple{display:none!important}
       <div class="card"><h2>Right now</h2><div id="nowLive"><span class="muted">(this run predates present-moment awareness)</span></div></div>
     </div>
   </div>
+  <nav class="seg" id="tabs" style="margin-top:14px;flex-wrap:wrap" aria-label="Which part of his life to show">
+    <button data-tab="life">Life</button><button data-tab="mind">Mind</button><button data-tab="body">Body</button>
+    <button data-tab="world">World</button><button data-tab="talk">Talk</button><button data-tab="lab">Lab</button><button data-tab="all">All</button></nav>
   <div class="grid" style="margin-top:14px">
     <div class="card"><h2>His people</h2><div id="familyLive"><span class="muted">(this life predates family and grief)</span></div></div>
     <div class="card"><h2>His body chemistry</h2><div id="chemLive"><span class="muted">(this life predates body chemistry)</span></div></div>
@@ -237,7 +240,9 @@ body[data-view="lab"] .simple{display:none!important}
   </div>
   <div class="grid" style="margin-top:14px">
     <div class="card"><h2>His relationships</h2><div id="bondsLive"><span class="muted">(this life predates relationship dynamics)</span></div></div>
-    <div class="card"><h2>His schooling</h2><div id="schoolLive"><span class="muted">(this life predates schooling by region)</span></div></div>
+    <div class="card"><h2>His schooling</h2><div id="schoolingLive"><span class="muted">(this life predates schooling by region)</span></div></div>
+    <div class="card"><h2>His work and money</h2><div id="econLive"><span class="muted">(this life predates the money loop)</span></div></div>
+    <div class="card"><h2>Inner voice and dreams</h2><div id="innerLive"><span class="muted">(this life predates his inner voice)</span></div></div>
     <div class="card"><h2>His phone</h2><div id="phoneLive"><span class="muted">(this life predates the phone)</span></div></div>
     <div class="card"><h2>His mental health</h2><div id="mentalLive"><span class="muted">(this life predates mental health)</span></div></div>
     <div class="card"><h2>What he faces</h2><div id="biasLive"><span class="muted">(this life predates prejudice)</span></div></div>
@@ -252,6 +257,7 @@ body[data-view="lab"] .simple{display:none!important}
     <div class="legend">He can only speak as well as he has learned to: a toddler babbles, an adult trained for years makes more sense. Talking to him does not change his life. A life that is not running is woken from its last save, which can take a minute.</div></div>
   <div class="card lab" style="margin-top:14px"><h2>His network (the model)</h2>
     <div id="netWrap"><canvas id="netViz"></canvas></div>
+    <div class="actions" style="margin:8px 0"><button id="toCortex" title="His network as regions: activity and learning">Open the network map</button></div>
     <div class="stat" id="now"></div>
     <div class="growth" id="growthBar"></div><div class="legend" id="growthNote"></div></div>
   <div class="grid lab" style="margin-top:14px">
@@ -281,10 +287,14 @@ body[data-view="lab"] .simple{display:none!important}
   <div class="card" style="margin-top:14px"><h2>Memory · what happened, and what he remembers now</h2><div id="memLive"></div></div>
   <div class="grid lab" style="margin-top:14px" id="stateCards"></div>
   <div class="card lab" style="margin-top:14px"><h2>Factors in force · change live</h2><table id="ftable"></table></div>
+  <div class="card lab" style="margin-top:14px"><h2>Experiments · fork a life and change one thing</h2><div id="expLive"></div>
+    <div class="legend">Every arm starts from the same saved month, with the same randomness; only the change differs. Run one with
+      <code>python -m vegalife.experiment --from runs/NAME --name ex1 --months 24 --arm poverty:state.wealth=0.02 --arm no_conscience:ablate=conscience</code>
+      (arms run one after another; add <code>--device cpu</code> to leave the GPU free).</div></div>
 </section>
 </main>
 <script>
-const $=id=>document.getElementById(id);const UI_VERSION=18;let CAT=null,RUN=null,timer=null,NET=null;
+const $=id=>document.getElementById(id);const UI_VERSION=19;let CAT=null,RUN=null,timer=null,NET=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const calm=matchMedia('(prefers-reduced-motion: reduce)');
 async function api(p,body){const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
