@@ -63,12 +63,33 @@ EVENT_NUDGES: Dict[str, Dict[str, float]] = {
     "move": {"neuroticism": 0.015, "openness": 0.005},
     "disaster": {"neuroticism": 0.01},
     "children+": {"agreeableness": 0.02, "conscientiousness": 0.02},
+    # added with round 2: lasting events from the newer modules
+    "prejudice": {"neuroticism": 0.02, "agreeableness": -0.01},
+    "cyberbullied": {"neuroticism": 0.025, "extraversion": -0.01},
+    "hardship": {"neuroticism": 0.015, "openness": -0.005},
+    "prison": {"neuroticism": 0.03, "agreeableness": -0.02, "conscientiousness": -0.01},
+    "death": {"neuroticism": 0.015},
+    "divorce": {"neuroticism": 0.02, "agreeableness": -0.005},
+    "own_divorce": {"neuroticism": 0.02, "extraversion": 0.005},
+    "breakup": {"neuroticism": 0.01},
+    "estranged": {"neuroticism": 0.02, "agreeableness": -0.01},
+    "repair": {"agreeableness": 0.008},
+    "wedding": {"conscientiousness": 0.01, "neuroticism": -0.01},
+    "child": {"conscientiousness": 0.004, "agreeableness": 0.003},
+    "mental": {"neuroticism": 0.03},
+    "recover": {"neuroticism": -0.01},
+    "there_for": {"agreeableness": 0.006},
+    "absent": {"agreeableness": -0.003},
+    "affair": {"conscientiousness": -0.01, "neuroticism": 0.01},
+    "stood_up": {"agreeableness": 0.006, "extraversion": 0.004},
+    "help": {"neuroticism": -0.01},
 }
 
 
 class Character:
     def __init__(self, p: Person, F: FactorSet):
         self.innate = {t: F[f"trait_{t}"] for t in TRAITS}
+        self.formed = {t: 0.0 for t in TRAITS}    # what lasting events have made of him, beyond innate and setting
         for t in TRAITS:                          # a newborn's temperament is its innate seed
             p.s[t] = self.innate[t]
         p.s["sleep"] = 0.8
