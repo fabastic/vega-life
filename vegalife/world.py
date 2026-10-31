@@ -30,6 +30,8 @@ from .seasons import Seasons
 from .illness import Illness, mortality_norm
 from .hormones import Hormones
 from .hardships import Hardships
+from .economy import UNIVERSAL_CARE, Economy
+from .surroundings import Surroundings
 
 GROUPS = {
     "body": ["health", "inflammation", "microbiome", "autoimmune_risk", "methylation_risk", "telomere", "cardio",
@@ -41,7 +43,7 @@ GROUPS = {
     "social": ["caregiver_attention", "caregiver_anxiety", "elder_template", "household_friction", "peer_isolation",
                "community_support", "social_isolation", "peer_support", "peer_risk", "peer_study"],
     "economy": ["academic", "employed", "skill_value", "income", "wealth", "housing", "pension", "children",
-                "schooling", "credential"],
+                "schooling", "credential", "financial_stress"],
     "chemistry": list(HORMONES),
     "personality": ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism",
                     "sleep", "mood", "mood_baseline"],
@@ -121,7 +123,8 @@ class Person:
             self.conscious = Conscious(seed)
         self._new_parts(F, seed)
 
-    PARTS = ("school", "mind", "online", "bonds", "prejudice", "seasons", "illness", "hormones", "hardships")
+    PARTS = ("school", "mind", "online", "bonds", "prejudice", "seasons", "illness", "hormones", "hardships", "economy",
+             "surroundings")
 
     def _new_parts(self, F: FactorSet, seed: int) -> None:
         """School as it runs where he lives, his mental health, his phone, how each relationship goes, and the
@@ -148,6 +151,20 @@ class Person:
                 self.s["bone_density"] = 0.3 + 0.35 * min(1.0, self.age / 360)
         if not hasattr(self, "hardships"):
             self.hardships = Hardships(F, seed, self.school.region)   # substances, crime, accidents, war, faith
+        if not hasattr(self, "economy"):
+            self.economy = Economy(F, seed)                            # occupation, cash flow, money stress, migration
+        if not hasattr(self, "surroundings"):
+            self.surroundings = Surroundings(F, seed)                  # the place, as doses over years
+        if not hasattr(self, "residence"):
+            self.residence = "home"                                    # or "care_facility" (seasons.py)
+
+    def care(self, F: FactorSet) -> float:
+        """Access to care he can actually use: the health system where he lives, cut by money worries where care is
+        paid for out of pocket."""
+        from .factors import REGION_NAMES
+        region = REGION_NAMES[int(round(F["region"] * (len(REGION_NAMES) - 1)))]
+        stress = getattr(getattr(self, "economy", None), "stress", 0.0)
+        return F["healthcare_access"] * (1 - 0.7 * stress * (1 - UNIVERSAL_CARE.get(region, 0.5)))
 
     @property
     def years(self) -> float:
