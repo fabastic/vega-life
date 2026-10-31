@@ -283,11 +283,40 @@ class Illness:
             h *= 1 + (d.death - 1) * (0.6 if self.known.get(c) else 1.0)     # treatment softens it
         return h
 
-    def cause(self) -> Optional[str]:
+    def cause(self, p=None, F=None) -> Optional[str]:
+        """The named cause: an acute event that killed him, or else one of his serious conditions (weighted by how
+        much each raises the risk of dying), or what has worn down most (attribute)."""
         if self.fatal:
             return self.fatal
-        worst = max(self.active, key=lambda c: BY[c].death, default=None)
-        return worst if worst and BY[worst].death >= 1.4 else None
+        serious = {c: BY[c].death - 1 for c in self.active if BY[c].death >= 1.4}
+        if p is None:
+            return max(serious, key=serious.get) if serious else None
+        w = self._wear(p, F)
+        names = list(serious) + list(w)
+        weights = [2.0 * serious[c] for c in serious] + [w[k] for k in w]
+        return self.rng.choices(names, weights)[0]
+
+    def _wear(self, p, F: FactorSet) -> dict:
+        """When no single condition stands out, name the death by what has worn down most: the heart and vessels,
+        cancer, the brain, the lungs, the kidneys, infection, or plain frailty. Weights aim at the US mix of causes
+        (heart disease ~21%, cancer ~18%, stroke ~5%, COPD ~5%, Alzheimer's ~4%, diabetes ~3%, kidney ~2%)."""
+        s, y, a = p.s, p.years, self.active
+        alcohol = "alcohol use" in p.mind.active or p.mind.had.get("alcohol use", 0) > 1
+        w = {"heart disease": 0.3 + 1.0 * (1 - s["cardio"]) + 0.4 * ("high blood pressure" in a) + 0.4 * s["insulin_resistance"],
+             "cancer": 0.9 + 0.8 * s["inflammation"] + 0.6 * s["methylation_risk"] + 0.8 * _smoked(p),
+             "stroke": 0.08 + 0.2 * ("high blood pressure" in a) + 0.25 * ("atrial fibrillation" in a),
+             "dementia": 0.05 + 2.5 * s["neurodegeneration"],
+             "COPD": 0.03 + 0.4 * _smoked(p) + 0.15 * F["local_pollution"],
+             "kidney failure": 0.05 + 0.4 * s["insulin_resistance"],
+             "pneumonia": 0.08 + 0.25 * max(0.0, (y - 80) / 10),
+             "diabetes": 0.03 + 0.5 * ("type 2 diabetes" in a),
+             "liver disease": 0.6 * alcohol,
+             "frailty of old age": max(0.0, (y - 82) / 8) * (1.3 - s["motor"])}
+        return {k: max(0.0, v) for k, v in w.items()}
+
+    def attribute(self, p, F: FactorSet) -> str:
+        w = self._wear(p, F)
+        return self.rng.choices(list(w), list(w.values()))[0]
 
     def line(self) -> str:
         for c in sorted(self.active, key=lambda c: -(BY[c].pain + BY[c].sleep + BY[c].burden)):
@@ -324,7 +353,7 @@ class Illness:
             self.done.add(d.key)
             if d.acute:
                 text = d.onset
-                if d.fatal and r.random() < d.fatal * (0.5 + y / 80) * (1.3 - 0.6 * F["healthcare_access"]):
+                if d.fatal and r.random() < d.fatal * (0.5 + y / 80) * (1.3 - 0.6 * p.care(F)):
                     self.fatal = d.key
                     self._say(p, f"{text}, and does not survive it", -1.0, out)
                     return out
@@ -332,17 +361,26 @@ class Illness:
                 if d.key in FOLLOWS:
                     self._begin(p, FOLLOWS[d.key], m, True)
                 continue
-            self._begin(p, d.key, m, not d.silent or r.random() < 0.3 * F["healthcare_access"])
+            self._begin(p, d.key, m, not d.silent or r.random() < 0.3 * p.care(F))
             if self.known[d.key]:
                 self._say(p, d.onset, -0.5, out)
+        # --- the pandemic: infection, and for some, an illness that does not leave (about 6% of infected adults) ---
+        hs = getattr(p, "hardships", None)
+        if hs is not None and hs.pandemic_at <= m < hs.pandemic_at + 14 and "infected" not in self.done and y >= 5:
+            if r.random() < 0.03:
+                self.done.add("infected")
+                self._say(p, "catches the virus and is in bed for two weeks", -0.4, out)
+                if y >= 12 and r.random() < 0.06 * (1.3 if not male else 0.8):
+                    self._begin(p, "long COVID", m, True)
+                    self._say(p, BY["long COVID"].onset, -0.6, out)
         # --- living with it ------------------------------------------------------------------------------------------
         pain = sleep = burden = 0.0
         for c in list(self.active):
             d = BY[c]
-            if not self.known[c] and r.random() < (0.025 if d.silent else 0.15) * F["healthcare_access"]:
+            if not self.known[c] and r.random() < (d.notice or (0.025 if d.silent else 0.15)) * p.care(F):
                 self.known[c] = True
                 self._say(p, d.onset, -0.4, out)
-            treated = self.known[c] and F["healthcare_access"] > 0.25
+            treated = self.known[c] and p.care(F) > 0.25
             soft = 0.6 if treated else 1.0
             pain += d.pain * soft
             sleep += d.sleep * soft
