@@ -89,6 +89,7 @@ class Bonds:
         self.bonds: Dict[str, Bond] = {}
         self.recent: Optional[str] = None          # who he last fought with, for his thoughts
         self.recent_at = -99
+        self.affair: Optional[dict] = None         # {"partner": name, "since": month}
 
     def to_json(self) -> List[dict]:
         return [b.to_json() for b in sorted(self.bonds.values(), key=lambda b: (b.pattern == "steady", -b.conflict))]
@@ -221,10 +222,118 @@ class Bonds:
             target = b.base * (0.6 + 0.4 * quality)
             who.closeness = clip(who.closeness + 0.01 * (target - who.closeness))
             felt += b.conflict * contact - 0.15 * (b.ratio > 4) * contact
+        out += self._affair(p, F)
+        out += self._their_lives(p, F, people)
         if felt > 0:
             p.apply({"anxiety": 0.004 * min(felt, 3), "allostatic_load": 0.0015 * min(felt, 3)}, fades=True)
         elif "oxytocin" in s:
             s["oxytocin"] = clip(s["oxytocin"] + 0.01 * min(-felt, 2))
+        return out
+
+    # ------------------------------------------------------------------ an affair
+    def _affair(self, p, F: FactorSet) -> List[dict]:
+        """About 20% of married men and 13% of married women in the US report an affair (GSS). Each month it lasts
+        his conscience weighs on him; the more his partner already distrusts him, the likelier it is found out.
+        Discovery crashes trust, brings contempt and defensiveness, and most marriages end within months."""
+        r, s, m, out = self.rng, p.s, p.age, []
+        pt = p.family.partner(m)
+        if self.affair is not None:
+            if pt is None or pt.name != self.affair["partner"]:
+                self.affair = None
+                return out
+            b = self.bonds.get(pt.name)
+            p.conscious.after(p, F, "lie to his partner about the affair")
+            p.apply({"anxiety": 0.006}, fades=True)
+            if b is not None and r.random() < 0.15 * (1.0 - b.trust) + 0.01:
+                b.trust = clip(b.trust - 0.65)
+                b.conflict = clip(b.conflict + 0.4)
+                b.pattern, b.months_bad, b.crisis_until = "contempt", 12, m + 6
+                b.last = "found out about the affair"
+                self.affair = None
+                out.append({"text": f"{pt.name} finds out about the affair", "valence": -0.9, "arousal": 0.95,
+                            "who": [pt.name], "key": "affair", "deltas": {"anxiety": 0.1}})
+                p.apply({"anxiety": 0.1, "household_friction": 0.1}, fades=True)
+            elif r.random() < 0.05:
+                self.affair = None
+                out.append({"text": "ends the affair before anyone finds out, and carries it alone", "valence": -0.3,
+                            "arousal": 0.5, "who": [], "key": "affair", "deltas": {}})
+            return out
+        if pt is None or not 20 <= p.years < 70:
+            return out
+        b = self.bonds.get(pt.name)
+        conflict = b.conflict if b else 0.1
+        moral = p.conscious.moral_sense(p, F)
+        if r.random() < 0.0009 * (0.5 + s["peer_risk"]) * (1.5 - s["agreeableness"]) * (1 + 2 * conflict) \
+                * (1.2 - 0.6 * moral) * (1.3 if F["sex"] >= 0.5 else 0.85):
+            self.affair = {"partner": pt.name, "since": m}
+            out.append({"text": "starts an affair and lies about where he has been", "valence": -0.4, "arousal": 0.8,
+                        "who": [], "key": "affair", "deltas": {"dopamine": 0.08}})
+        return out
+
+    # ------------------------------------------------------------------ the people around him have lives too
+    EVENTS = {"divorce": ("is going through a divorce", "is there for {n} through the divorce, night after night",
+                          "is too busy to call {n} while {n} goes through a divorce", -1, 26),
+              "illness": ("is seriously ill", "drives {n} to every hospital appointment",
+                          "keeps meaning to visit {n} in hospital, and doesn't", -1, 15),
+              "baby": ("has a baby", "turns up at {n}'s door with food and a gift for the baby",
+                       "never gets round to meeting {n}'s baby", 1, 22),
+              "job": ("loses their job", "helps {n} with applications and buys the drinks",
+                      "doesn't call {n} after they lose their job", -1, 20),
+              "wedding": ("gets married", "gives a speech at {n}'s wedding", "makes an excuse and misses {n}'s wedding",
+                          1, 22),
+              "loss": ("loses a parent", "sits with {n} at the funeral and stays after",
+                       "sends a text instead of going to the funeral of {n}'s parent", -1, 25),
+              "addiction": ("is struggling with addiction", "drives {n} to rehab and sits in the car park for hours",
+                            "can't face {n}'s drinking and stops answering", -1, 99),
+              "prison": ("is sent to prison", "visits {n} in prison every month", "can't bring himself to visit {n} in prison",
+                         -1, 99),
+              "debt": ("is drowning in debt", "pays off part of {n}'s debts", "says no when {n} asks for money", -1, 99)}
+
+    def their_event(self, p, F: FactorSet, who, kind: str) -> List[dict]:
+        """Someone close goes through something big. He can show up (the bond deepens, at a cost to his time and
+        energy) or not (the bond cools; for friends, repeated absences end the friendship)."""
+        r, s, m = self.rng, p.s, p.age
+        b = self.bonds.get(who.name)
+        if b is None:
+            return []
+        what, there, absent, _, _ = self.EVENTS[kind]
+        moral = p.conscious.moral_sense(p, F)
+        busy = clip((p.work.hours - 40) / 25) if s["employed"] > 0.5 else 0.0
+        mind = getattr(p, "mind", None)
+        show = clip(0.2 + 0.35 * who.closeness + 0.25 * s["agreeableness"] + 0.2 * moral - 0.25 * busy
+                    - 0.15 * p.online.habit - 0.2 * (mind.load() if mind else 0.0))
+        if r.random() < show:
+            b.trust = clip(b.trust + 0.06)
+            b.ratio = min(12.0, b.ratio + 1.0)
+            who.closeness = clip(who.closeness + 0.03)
+            s["sleep"] = clip(s["sleep"] - 0.02)                          # time and energy he gives
+            p.apply({"allostatic_load": 0.003}, fades=True)
+            p.chem.level["oxytocin"] = clip(p.chem.level["oxytocin"] + 0.04)
+            p.conscious.after(p, F, "help them through it")
+            return [{"text": there.format(n=who.name), "valence": 0.5, "arousal": 0.5, "who": [who.name],
+                     "key": "there_for", "deltas": {}}]
+        b.ignored += 1
+        b.trust = clip(b.trust - 0.04)
+        b.conflict = clip(b.conflict + 0.05)
+        who.closeness = clip(who.closeness - 0.04)
+        out = [{"text": absent.format(n=who.name), "valence": -0.3, "arousal": 0.3, "who": [who.name], "key": "absent",
+                "deltas": {}}]
+        if b.relation == "friend" and b.ignored >= 3 and who.closeness < 0.35 and getattr(who, "left", None) is None:
+            who.left = m
+            out.append({"text": f"realises he and {who.name} aren't friends any more; he wasn't there", "valence": -0.5,
+                        "arousal": 0.4, "who": [who.name], "key": "friend", "deltas": {}})
+        return out
+
+    def _their_lives(self, p, F: FactorSet, people) -> List[dict]:
+        r, y, out = self.rng, p.years, []
+        if y < 14:
+            return out
+        for who, rel in people:
+            if rel not in ("friend", "sibling") or r.random() >= 0.004:
+                continue
+            kinds = [k for k, (*_, sign, from_age) in self.EVENTS.items() if y >= from_age]
+            if kinds:
+                out += self.their_event(p, F, who, r.choice(kinds))
         return out
 
     def _who(self, rel: str, name: str) -> str:
