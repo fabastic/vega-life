@@ -127,9 +127,10 @@ class Bonds:
                 out += self._estranged(p, b, who)
                 continue
             # how much time together, and the friction in it
-            home = (rel in ("mother", "father", "sibling") and (y < 19 or s["housing"] < 0.5)) or rel == "partner" \
+            far = getattr(p.family, "abroad", False) and rel in ("mother", "father", "sibling", "grandparent")
+            home = (rel in ("mother", "father", "sibling") and (y < 19 or s["housing"] < 0.5) and not far) or rel == "partner" \
                 or (rel == "child" and m - who.born < 216)
-            contact = (1.0 if home else 0.35) * (0.5 + 0.5 * who.closeness)
+            contact = (1.0 if home else 0.15 if far else 0.35) * (0.5 + 0.5 * who.closeness)
             if rel == "friend":
                 contact = who.closeness * (0.5 if getattr(who, "online", False) else 1.0)
             base = {"mother": 0.12 + 0.3 * bump(y, 12, 16), "father": 0.12 + 0.3 * bump(y, 12, 16),
