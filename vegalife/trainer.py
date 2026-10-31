@@ -707,6 +707,8 @@ class Life:
             rewards.append(rec["lived_reward"])
             distinct.append(rec["distinct"])
             informative.append(rec["informative"])
+        self.sleep()                                          # offline replay, and a dream
+        self.inner_voice()
         if self.p.s["neurodegeneration"] > 0.02 and self.p.age % 3 == 0:
             self.model.degrade(self.p.s["neurodegeneration"], self.gen)
         if self.p.age % int(self.sim["eval_every_months"]) == 0:
@@ -747,6 +749,11 @@ class Life:
             "illness": self.p.illness.to_json(self.p),
             "hormones": self.p.hormones.to_json(),
             "hardships": self.p.hardships.to_json(),
+            "economy": self.p.economy.to_json(),
+            "surroundings": self.p.surroundings.to_json(),
+            "dreams": list(self.dreams)[-8:], "ablate": sorted(self.ablate),
+            "self_knowledge": self.probe.last,
+            "residence": getattr(self.p, "residence", "home"),
             "memory": self.mem.summary(self.p.age),
             "brain": self.brain.stats() if self.brain is not None else None,
             "now": self.present.last.to_json() if self.present.last else None,
@@ -760,7 +767,7 @@ class Life:
     # ------------------------------------------------------------------ checkpoint and resume
     PY_STATE = ("F", "circle", "p", "character", "chosen", "speech", "r", "mem", "present", "lessons", "life_months",
                 "best_eval", "ps_ema", "tier_ema", "tier_n", "curves", "items", "log", "babble", "heard",
-                "interventions_seen")
+                "interventions_seen", "dreams", "probe")
     BRAIN_STATE = ("nodes", "out", "inn", "counter", "pending_estimates", "pending_counts", "pending_scale")
     LOGS = ("events.jsonl", "brain_nodes.jsonl", "brain_edges.jsonl")
 
