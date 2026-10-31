@@ -150,10 +150,17 @@ class Schooling:
                      + 0.08 * (s["academic"] - 0.5), 0.02, 0.98) * focus
         s["academic"] = clip(s["academic"] + 0.01 * z * (0.5 + 0.5 * F["school_quality"])
                              - 0.008 * self.unsettled - 0.006 * (1 - focus))
+        dys = getattr(mind, "dyslexia", False) and not (self.tutored or (mind.diagnosed.get("dyslexia") is not None))
+        ill = getattr(p, "illness", None)
+        blurry = bool(ill and "short-sightedness" in ill.active and not ill.known.get("short-sightedness"))
+        if blurry:                                   # he can't read the board until someone checks his eyes
+            self.unsettled = min(0.9, self.unsettled + 0.01 * (1.2 - F["adaptability"]))
+            s["academic"] = clip(s["academic"] - 0.002)
         for k in SUBJECTS:
             apt = {"maths": 0.06 * z, "science": 0.05 * z, "computing": 0.04 * z, "sport": 0.1 * (s["motor"] - 0.5),
                    "art": 0.05 * (s["openness"] - 0.5), "music": 0.05 * (s["openness"] - 0.5)}.get(k, 0.03 * z)
-            self.grades[k] += 0.05 * (clip(level + apt + 0.15 * (self.interest[k] - 0.4)) - self.grades[k])
+            reading = 0.8 if dys and k in ("literature", "languages", "history") else 1.0   # -20% unless supported
+            self.grades[k] += 0.05 * (clip((level + apt + 0.15 * (self.interest[k] - 0.4)) * reading) - self.grades[k])
             # interest follows success and encouragement, and temperament
             o, e = s["openness"] - 0.5, s["extraversion"] - 0.5
             pull = 0.02 * (self.grades[k] - 0.5) + 0.01 * {"art": o, "music": o, "literature": o, "business": e,
