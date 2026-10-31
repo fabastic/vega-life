@@ -155,7 +155,7 @@ def facts(p, moment=None, mem=None, r: Optional[random.Random] = None) -> List[t
     if cs is not None:
         if cs.self_model:
             out.append(("Tell me about yourself.", f"I am {y}. " + " ".join(cs.self_model[:3])))
-        if cs.thoughts:
+        if cs.thoughts and getattr(cs, "templated", True):        # template answers fade with the templates
             out.append(("What are you thinking about?", " ".join(cs.thoughts[:2])))
             out.append(("Hi!", "Hi. " + cs.thoughts[0]))
         if cs.guilt > 0.15 and getattr(cs, "last_harm", None):
@@ -198,7 +198,7 @@ def conversation(p, F, present, mem, name: str, r: random.Random) -> List[str]:
         turns.append(r.choice(pairs))
     head = [m.line()] if m is not None else []
     cs = getattr(p, "conscious", None)
-    if cs is not None and cs.thoughts:
+    if cs is not None and cs.line():
         head.append(cs.line())
     if mem is not None and turns[0][0] == "What do you remember?":
         head.append("Memory: " + turns[0][1][:110])
