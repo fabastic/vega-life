@@ -35,7 +35,9 @@ def test_he_has_thoughts_and_a_true_self_model():
     assert 1 <= len(cs.thoughts) <= 3 and all(t.endswith((".", "!")) or "..." in t for t in cs.thoughts)
     kids = any(x.relation == "child" for x in L.p.family.people)
     assert ("I am a father." in cs.self_model) == kids
-    assert cs.line().startswith("Thought: ")
+    assert cs.line().startswith("Feel: mood ")              # at 30 his state is given as numbers, not sentences
+    from vegalife.conscious import template_share
+    assert template_share(2) == 1.0 and template_share(4.5) == 0.5 and template_share(6) == 0.0
 
 
 def test_conscience_grows_with_age_and_weighs_harm_more_than_help():
