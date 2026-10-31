@@ -646,6 +646,8 @@ class Seasons:
         if r.random() >= 0.0007 * vuln:
             return out
         kinds = [k for k in SCAMS if k[1][0] <= y < k[1][1]]
+        if not kinds:                                         # older than every scam's age range
+            return out
         if s["felt_loneliness"] < 0.3:
             kinds = [k for k in kinds if k[0] != "romance"] or kinds
         kind, _, text, cost = r.choice(kinds)
