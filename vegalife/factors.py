@@ -261,6 +261,18 @@ WORLD: List[Factor] = [
     Factor("phone_rules", "surroundings", "technological", "Phone rules at home",
            "Limits on phones: a later first phone, phones out of the bedroom at night, less scrolling (digital.py).",
            0.4, 0.22, 0.0),
+    # Added in round 2 (surroundings.py), after everything above so older seeds keep their values.
+    Factor("green_space", "surroundings", "biological", "Green space near home",
+           "Parks and trees around his childhood home: a weak, dose-dependent protection against adult mental illness.",
+           0.5, 0.22, -0.2),
+    Factor("lead_exposure", "infancy", "biological", "Lead exposure (old paint, pipes, soil)",
+           "Early-childhood blood lead lowers IQ, steeply at low doses (Lanphear 2005).", 0.12, 0.12, 0.25),
+    Factor("noise", "childhood", "biological", "Aircraft and road noise at home and school",
+           "Slows reading at school above about 55 dB.", 0.35, 0.2, 0.2),
+    Factor("urbanicity", "surroundings", "social", "City or countryside",
+           "A city childhood raises psychosis risk (about 2.4x most urban vs most rural, Vassos 2012).", 0.6, 0.3, 0.0),
+    Factor("commute", "middle_adult", "socioeconomic", "Commute to work",
+           "Long commutes cost sleep and mood; pay rarely makes up for it (Stutzer & Frey 2008).", 0.25, 0.15, 0.1),
 ]
 
 EXPOSURES += SCHOOL + FRIENDS + SURROUNDINGS + TEMPERAMENT + WORLD
@@ -341,7 +353,7 @@ def sample(seed: int, overrides: Optional[Dict[str, float]] = None,
             values[f.key], source[f.key] = clip(rng.gauss(f.mean + 2 * f.ses * poverty, f.sd)), "seeded"
     if "region" not in overrides:                  # a place, not a level: one of the regions
         values["region"] = rng.randrange(len(REGION_NAMES)) / (len(REGION_NAMES) - 1)
-    for k in ("minority_status", "migrant_background"):
+    for k in ("minority_status", "migrant_background", "urbanicity"):
         if k not in overrides:                     # choices: snap to the nearest option
             values[k] = min((0.0, 0.5, 1.0), key=lambda o: abs(o - values[k]))
     return FactorSet(values, source, [dict(t) for t in (timeline or [])])
@@ -389,6 +401,10 @@ UNITS.update({
     "minority_status": {"kind": "choice", "options": [[0, "majority"], [0.5, "a minority"], [1, "a visible minority"]]},
     "migrant_background": {"kind": "choice", "options": [[0, "local family"], [0.5, "child of migrants"],
                                                          [1, "migrated himself"]]},
+    "lead_exposure": {"kind": "scale", "lo": 1, "hi": 30, "step": 0.5, "unit": "µg/dL blood lead in early childhood"},
+    "noise": {"kind": "scale", "lo": 40, "hi": 75, "step": 1, "unit": "dB average noise"},
+    "urbanicity": {"kind": "choice", "options": [[0, "countryside"], [0.5, "town"], [1, "city"]]},
+    "commute": {"kind": "scale", "lo": 0, "hi": 120, "step": 5, "unit": "minutes each way"},
 })
 LEVEL_WORDS = ["none", "very low", "low", "moderate", "high", "very high"]
 
