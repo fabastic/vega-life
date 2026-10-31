@@ -23,7 +23,9 @@ EVENT_DOMAIN = {"friend": "social", "bullied": "social", "home": "social", "work
                 "cyberbullied": "technological", "prejudice": "social", "bias": "social", "stood_up": "social", "out": "social",
                 "sorrow": "mental", "infertility": "biological", "miscarriage": "social", "stillbirth": "social",
                 "scam": "socioeconomic", "body": "biological",
-                "hardship": "social", "good": "social"}
+                "hardship": "social", "good": "social", "wedding": "social", "moving_in": "social",
+                "affair": "social", "own_divorce": "social", "there_for": "social", "absent": "social",
+                "their_trouble": "social", "care": "social", "mentor": "social"}
 FEELING = (("anxiety", 0.015, "scared"), ("health", -0.02, "hurt"), ("peer_isolation", 0.015, "left out"),
            ("allostatic_load", 0.02, "worn out"), ("community_support", 0.015, "close to people"),
            ("attachment", 0.015, "safe"), ("resilience", 0.01, "capable"), ("academic", 0.015, "proud"))
@@ -43,7 +45,7 @@ def world_month(L, attribute: bool = True) -> List[str]:
         shifts = {}
         if h["memorable"]:
             L.present.happened(age, h["text"], h["valence"])     # on his mind now...
-            shifts = L.character.nudge(p, h["key"], h["valence"])  # ...shaping him a little...
+            shifts = L.character.nudge(p, h["key"], h["valence"], h.get("arousal", 0.5))  # ...shaping him a little...
         nid = None
         if L.brain is not None:
             if h["key"] == "consequence":
