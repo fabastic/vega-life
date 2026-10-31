@@ -229,7 +229,7 @@ class Hormones:
                     sleep += 0.06 if self.hrt else 0.14
                     drag += 0.01 if self.hrt else 0.03
                     p.apply({"anxiety": 0.004}, fades=True)
-                    if not self.hrt and r.random() < 0.015 * F["healthcare_access"]:
+                    if not self.hrt and r.random() < 0.015 * p.care(F):
                         self.hrt = True
                         self._say(p, "starts HRT and sleeps through the night for the first time in a year", 0.6, "", out)
             if y >= self.menopause_age and "meno" not in self.done:
