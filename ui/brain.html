@@ -39,7 +39,7 @@ aside h3{font-size:15px}
       <circle cx="16" cy="16" r="4" fill="var(--acc)"/><circle cx="6" cy="9" r="2.4" fill="var(--acc2)"/><circle cx="6" cy="23" r="2.4" fill="var(--acc2)"/><circle cx="26" cy="9" r="2.4" fill="var(--acc)"/><circle cx="26" cy="23" r="2.4" fill="var(--acc)"/></svg>
     <span><b>VEGA</b><small>brain map</small></span>
   </a>
-  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button class="on">Brain map</button></nav>
+  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button class="on">Brain map</button><button id="toNet" title="His network itself, as regions">Network</button></nav>
   <select id="run" title="Which life"></select>
   <select id="view" title="Overview groups repeats; every moment shows each one"><option value="overview">Overview (grouped)</option><option value="detail">Every moment</option></select>
   <label class="muted">age <input id="from" type="number" min="0" max="110" style="width:56px" placeholder="0"> to <input id="to" type="number" min="0" max="110" style="width:56px" placeholder="end"></label>
@@ -253,6 +253,7 @@ async function trace(id,dir){const d=await api(`/api/brain/trace?run=${encodeURI
   $('stats').textContent=`${dir==='up'?'What led to':'What came of'} “${(n||{}).label||id}”: ${d.nodes.length} nodes`}
 
 runs().then(async()=>{await load();const f=params.get('focus');if(f){setTimeout(()=>trace(f,'up'),300)}});window.onresize=()=>fitView();
+$('toNet').onclick=()=>location.href='/cortex?run='+encodeURIComponent($('run').value||'');
 </script>
 </body>
 </html>
