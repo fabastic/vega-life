@@ -123,6 +123,9 @@ class Family:
         self.extra_hazard = 1.0
         self.expecting: Optional[int] = None      # the month a baby is due
         self.grandchildren = 0
+        self.childbirth_fatal = False              # she (if he is a woman) dies giving birth: world.py names it
+        self.ses = F["ses"]                        # what his parents have: what they can leave him
+        self.abroad = False                        # he emigrated: his family are far away
         self.lose_at: Optional[int] = None         # a pregnancy that will not end in a birth
         self.lose_kind = ""
         self.trying = 0                            # months trying for a baby without a pregnancy
