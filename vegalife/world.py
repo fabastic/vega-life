@@ -484,12 +484,13 @@ class Person:
                            - 0.15 * (1 - s["cardio"]) - 0.12 * s["methylation_risk"] * (y / 80)
                            - 0.14 * s["social_isolation"] * (y > 56) - 0.06 * s["loneliness"] * (y > 30)
                            - 0.25 * (1 - s["telomere"]) - 0.25 * self.illness.burden()
-                           - 0.08 * (1 - F["healthcare_access"]) * (s["inflammation"] + s["allostatic_load"]))
+                           - 0.08 * (1 - self.care(F)) * (s["inflammation"] + s["allostatic_load"]))
         # --- the people around him: ageing, dying, leaving; and the grief that follows (family.py) -------
         for h in (self.family.step(self, F) + self.work.step(self, F) + self.bonds.step(self, F)
                   + self.mind.step(self, F) + self.online.step(self, F) + self.prejudice.step(self, F)
                   + self.seasons.step(self, F) + self.illness.step(self, F) + self.hormones.step(self, F)
-                  + self.hardships.step(self, F)):
+                  + self.hardships.step(self, F) + self.economy.step(self, F)
+                  + self.surroundings.step(self, F)):
             self.note(h["text"], h["valence"], h["arousal"], who=h["who"], key=h["key"], deltas=h["deltas"])
         bright = self.chem.step(self, F, self.family, self.work)    # the month's chemistry, and its best moment
         if bright:
