@@ -502,10 +502,10 @@ class Person:
         #   unemployment in working age: all-cause mortality HR about 1.63 (Roelfs et al. 2011)
         #   air pollution: about 1 year of life per 10 ug/m3 PM2.5 (AQLI); 0 here is clean air, 1 is about 35 ug/m3,
         #   a hazard x1.26 that costs about 3 years over a life
-        hazard = 3.4e-6 * math.exp(0.085 * y) * (1.6 - s["health"]) ** 3 * (1.3 - 0.6 * F["healthcare_access"])
+        hazard = 3.4e-6 * math.exp(0.085 * y) * (1.6 - s["health"]) ** 3 * (1.3 - 0.6 * self.care(F))
         if 25 <= y < 65 and s["employed"] < 0.5 and s["schooling"] < 0.5:
             hazard *= 1.55         # direct part; stress and poverty add the rest, toward the unadjusted figure
-        hazard *= 1 + 0.26 * F["local_pollution"]
+        hazard *= 1 + 0.26 * (F["local_pollution"] + self.economy.extra_pollution())   # cheap housing: worse air
         hazard *= self.family.extra_hazard        # widowhood, and the heart in the month of a close death
         hazard *= self.work.hazard()              # long hours (Kivimäki 2015)
         hazard *= self.mind.hazard()              # depression ~1.5x, alcohol ~1.8x, psychosis ~2x, untreated ADHD
