@@ -163,7 +163,7 @@ class Conscious:
         for part, sal, call in (("mind", 0.6, lambda o: o.line()), ("bonds", 0.5, lambda o: o.line(p.age)),
                                 ("school", 0.45, lambda o: o.line()), ("prejudice", 0.45, lambda o: o.line()),
                                 ("online", 0.35, lambda o: o.line()),
-                                ("seasons", 0.4, lambda o: o.line(p, F)), ("illness", 0.5, lambda o: o.line()),
+                                ("seasons", 0.4, lambda o: o.line(p, F)), ("illness", 0.5, lambda o: o.line()), ("economy", 0.55, lambda o: o.line()),
                                 ("hormones", 0.35, lambda o: o.line()), ("hardships", 0.5, lambda o: o.line())):
             o = getattr(p, part, None)
             t = call(o) if o is not None else ""
@@ -180,11 +180,48 @@ class Conscious:
         self.thoughts = [t for _, t in cands[:k]]
         if p.age % 6 == 0 or not self.self_model:
             self.self_model = self.build_self_model(p)
+        # Template thoughts are scaffolding: always given at 3, never after 6. In their place he is given his state as
+        # numbers and must put it into words himself (trainer.py generates his inner voice from it).
+        self.templated = r.random() < template_share(y)
+        self.vector = feel_vector(p)
         return self.thoughts
 
     def line(self) -> str:
-        return "Thought: " + " ".join(self.thoughts) if self.thoughts else ""
+        """What goes into his own language this month: template sentences while young, his raw state after."""
+        if getattr(self, "templated", True):
+            return "Thought: " + " ".join(self.thoughts) if self.thoughts else ""
+        return "Feel: " + self.vector if getattr(self, "vector", "") else ""
+
+    def chat_line(self) -> str:
+        """What he is aware of when someone talks to him: his own inner voice once he has one."""
+        if getattr(self, "templated", True) or not getattr(self, "inner", ""):
+            return self.line()
+        return f"Thought: {self.inner}\nFeel: {self.vector}"
 
     def to_json(self) -> dict:
         return {"thoughts": self.thoughts, "self_model": self.self_model, "guilt": round(self.guilt, 3),
-                "pride": round(self.pride, 3), "last_deed": self.last_deed[0] if self.last_deed else None}
+                "pride": round(self.pride, 3), "last_deed": self.last_deed[0] if self.last_deed else None,
+                "templated": getattr(self, "templated", True), "vector": getattr(self, "vector", ""),
+                "inner": getattr(self, "inner", ""), "off": getattr(self, "off", False)}
+
+
+def template_share(y: float) -> float:
+    """Share of months his thoughts are handed to him as sentences: 1 until 3, falling to 0 at 6."""
+    return 1.0 if y < 3 else max(0.0, 1.0 - (y - 3) / 3)
+
+
+FEEL = (("mood", "mood"), ("joy", "joy"), ("worry", "anxiety"), ("grief", "grief"), ("lonely", "felt_loneliness"),
+        ("sleep", "sleep"), ("health", "health"), ("stress", "allostatic_load"), ("money", "financial_stress"))
+
+
+def feel_vector(p) -> str:
+    """His state as numbers (0-99), plus pain, guilt and pride: the raw signal his workspace passes on."""
+    s = p.s
+    parts = [f"{name} {int(99 * max(0.0, min(1.0, s.get(k, 0.0))))}" for name, k in FEEL]
+    ill = getattr(p, "illness", None)
+    if ill is not None:
+        parts.append(f"pain {int(99 * ill.pain_now)}")
+    cs = getattr(p, "conscious", None)
+    if cs is not None:
+        parts += [f"guilt {int(99 * cs.guilt)}", f"pride {int(99 * cs.pride)}"]
+    return ", ".join(parts)
