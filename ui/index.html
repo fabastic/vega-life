@@ -598,7 +598,7 @@ function schoolUpdate(L){const c=L.schooling;if(!c)return;const sy=c.system;
   if(c.exam_percentile!=null)h+=`<p style="margin:4px 0">Sat ${esc(c.exam_name)}: better than ${c.exam_percentile}% of students.</p>`;
   if(c.wanted)h+=`<p style="margin:4px 0">Wanted <b>${esc(c.wanted)}</b>; ${c.course?'studies <b>'+esc(c.course)+'</b>':'did not go on'}. <small class="muted">${c.why.map(esc).join('; ')}</small></p>`;
   h+=`<div class="legend">Where he lives: school from ${sy.start}, exam pressure ${Math.round(sy.pressure*100)}%, ${Math.round(sy.tutoring*100)}% tutored, ${Math.round(sy.entry*100)}% go to university, cost ${sy.tuition<0.15?'nearly free':sy.tuition<0.5?'moderate':'high'}. Getting the course he wants depends on his result, his family's money and what people expect of someone like him.</div>`;
-  $('schoolLive').innerHTML=h}
+  $('schoolingLive').innerHTML=h}
 const BAIT=new Set(['outrage','looks','money','crisis']);
 function phoneUpdate(L){const o=L.online;if(!o)return;
   if(!o.has_phone){$('phoneLive').innerHTML=`<p class="muted">No phone of his own yet (due about ${o.first_phone_at}). About ${o.hours} hours of screens a day.</p>`;return}
