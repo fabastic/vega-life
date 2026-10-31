@@ -518,11 +518,13 @@ class Life:
         # The learning group keeps a fixed spread; the answer he lives is drawn at a temperature his state sets.
         lived_temp = self.character.decision_temperature(self.p, temp)
         if isinstance(item, SelfQuestion):           # knowing his own life: rewarded only if the number is right
-            texts, rewards, _, lived, lived_r = grpo(self.model, self.opt, item.prompt, lambda t: score_self(item, t), k,
-                                                     12, temp, self.device, self.amp, lived_temperature=lived_temp)
+            near = self._closest(item)
+            texts, rewards, _, lived, lived_r = grpo(self.model, self.opt, item.prompt,
+                                                     lambda t: score_self(item, t, near(t)), k, 16, temp, self.device,
+                                                     self.amp, lived_temperature=lived_temp)
             rec = {"kind": "self", "key": item.key, "prompt": item.prompt, "answer": item.answer, "responses": texts,
                    "rewards": rewards, "lived": lived, "lived_reward": lived_r,
-                   "outcome": "right" if lived_r == 1.0 else "wrong"}
+                   "outcome": "right" if lived_r >= 0.99 else "partly" if lived_r > 0.3 else "wrong"}
         elif isinstance(item, Problem):
             now = self.present.moment(self.p, self.F, self.r, problem_scene(self.p)).line()
             prompt = render_problem(item, self.p, now)
