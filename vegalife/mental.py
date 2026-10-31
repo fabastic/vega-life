@@ -92,7 +92,9 @@ class MentalHealth:
         g = 0.6 + F["genetic_risk"]
         self.autism = r.random() < (1 / 20 if male else 1 / 71) * g
         self.adhd = r.random() < (0.085 if male else 0.042) * g * (1.3 if self.autism else 1.0)
-        self.diagnosed: Dict[str, Optional[int]] = {"autism": None, "ADHD": None}
+        # Dyslexia: about 5-10% of children (more boys), strongly heritable; reading is slower all his life.
+        self.dyslexia = r.random() < 0.05 * g * (1.3 if male else 0.75)
+        self.diagnosed: Dict[str, Optional[int]] = {"autism": None, "ADHD": None, "dyslexia": None}
         self.active: Dict[str, int] = {}               # condition -> month the episode began
         self.treated: Dict[str, bool] = {}
         self.had: Dict[str, int] = {}                  # condition -> number of episodes so far
@@ -142,7 +144,8 @@ class MentalHealth:
         return ""
 
     def to_json(self, month: int) -> dict:
-        return {"autism": self.autism, "adhd": self.adhd, "self_harm": getattr(self, "self_harm", False),
+        return {"autism": self.autism, "adhd": self.adhd, "dyslexia": getattr(self, "dyslexia", False),
+                "self_harm": getattr(self, "self_harm", False),
                 "diagnosed": {k: None if v is None else round(v / 12, 1) for k, v in self.diagnosed.items()},
                 "active": [{"condition": c, "since_years": round(m / 12, 1), "treated": self.treated.get(c, False)}
                            for c, m in self.active.items()],
@@ -157,8 +160,10 @@ class MentalHealth:
         male = F["sex"] >= 0.5
         out += self._around(p, F)
         # --- how he is wired: noticed or not ---------------------------------------------------------------------
-        care = F["healthcare_access"] * (1 - 0.5 * self.stigma)
-        for cond, have, start, rate in (("autism", self.autism, 2, 0.025), ("ADHD", self.adhd, 5, 0.012)):
+        care = p.care(F) * (1 - 0.5 * self.stigma)
+        self.diagnosed.setdefault("dyslexia", None)
+        for cond, have, start, rate in (("autism", self.autism, 2, 0.025), ("ADHD", self.adhd, 5, 0.012),
+                                        ("dyslexia", getattr(self, "dyslexia", False), 6, 0.02)):
             if have and self.diagnosed[cond] is None and y >= start:
                 girl = 0.5 if not male else 1.0
                 late = 0.25 if y >= 18 else 1.0
@@ -187,7 +192,7 @@ class MentalHealth:
         for c, (base, win, end_u, end_t, _, recur) in EPISODIC.items():
             if c in self.active:
                 treated = self.treated.get(c, False)
-                if not treated and r.random() < 0.07 * F["healthcare_access"] * (1 - self.stigma) * (0.7 if male else 1.0):
+                if not treated and r.random() < 0.07 * p.care(F) * (1 - self.stigma) * (0.7 if male else 1.0):
                     self.treated[c] = True
                     out.append({"text": f"gets help for his {c}", "valence": 0.3, "arousal": 0.4, "who": [],
                                 "key": "help", "deltas": {}})
@@ -217,6 +222,7 @@ class MentalHealth:
                         "psychosis": 0.5 * male + 1.0 * F["genetic_risk"] + 0.6 * s["allostatic_load"]
                         + 1.2 * getattr(getattr(p, "hardships", None), "cannabis", 0.0) * (y < 25),
                         "bipolar": 1.2 * F["genetic_risk"], "OCD": 0.8 * (s["neuroticism"] - 0.5)}.get(c, 0.0)
+                risk += getattr(getattr(p, "surroundings", None), "mental_risk", lambda: {})().get(c, 0.0)
                 h = (recur if self.had.get(c) else base) * w * math.exp(risk)
             if r.random() < h:
                 self.active[c] = m
@@ -237,7 +243,7 @@ class MentalHealth:
                 pr = "him" if male else "her"
                 out.append({"text": f"starts hurting {pr}self in secret to cope with how bad things feel", "valence": -0.8,
                             "arousal": 0.6, "who": [], "key": "mental", "deltas": {}})
-        if self.self_harm and r.random() < 0.04 * (0.4 + F["healthcare_access"]):
+        if self.self_harm and r.random() < 0.04 * (0.4 + p.care(F)):
             self.self_harm = False
             pr = "him" if male else "her"
             out.append({"text": f"is noticed by someone who cares, gets {pr} help, and slowly stops hurting {pr}self",
