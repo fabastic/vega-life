@@ -72,6 +72,14 @@ def _old_parent(p, age=75):
     return [x for x in p.family.present(p.age) if x.relation in ("mother", "father") and x.age(p.age) >= age]
 
 
+def _pet(p) -> str:
+    """The pet's nature: fixed by its name, so it stays the same animal for life."""
+    pets = _present(p, "pet")
+    if not pets:
+        return ""
+    return ["greedy", "anxious", "adventurous", "loyal", "lazy"][sum(map(ord, pets[0].name)) % 5]
+
+
 def _male(F) -> bool:
     return F["sex"] >= 0.5
 
@@ -86,6 +94,7 @@ class Moment:
     deltas: Dict[str, float] = field(default_factory=dict)
     chem: Dict[str, float] = field(default_factory=dict)
     once: bool = False
+    act: Optional[Callable] = None            # what it changes beyond his state (where he lives, ...)
 
 
 J, S = 1, -1
