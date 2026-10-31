@@ -129,7 +129,8 @@ class Career:
             out.append({"text": f"is promoted to {TITLES[self.level]}", "valence": 0.7, "arousal": 0.6, "who": [],
                         "key": "work", "deltas": {"dopamine": 0.12, "income": 0.06}})
         # burning out
-        self.burnout = clip(self.burnout + max(0.0, h - 48) / 700 + 0.002 * self.strain - (0.03 if h < 45 else 0.0))
+        bm = p.economy.burnout_mult() if hasattr(p, "economy") else 1.0            # some fields wear people out faster
+        self.burnout = clip(self.burnout + bm * (max(0.0, h - 48) / 700 + 0.002 * self.strain) - (0.03 if h < 45 else 0.0))
         if self.burnout > 0.7 and r.random() < 0.06:
             self.burnout = 0.3
             self.off_until = m + r.randint(2, 6)
