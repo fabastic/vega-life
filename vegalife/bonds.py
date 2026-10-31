@@ -206,11 +206,11 @@ class Bonds:
                 out.append({"text": f"stops speaking to {self._who(rel, who.name)}", "valence": -0.7, "arousal": 0.7,
                             "who": [who.name], "key": "estranged", "deltas": {"loneliness": 0.05}})
                 p.apply({"loneliness": 0.05, "anxiety": 0.04}, fades=True)
-            elif rel == "partner" and getattr(who, "seeded", True) and b.pattern in ("contempt", "pursue-withdraw") \
-                    and b.months_bad >= 12 and r.random() < 0.04:
-                who.gone = True
-                out.append(p.family._lose(p, who, "breakup", False))
-                del self.bonds[who.name]
+            elif rel == "partner" and getattr(who, "seeded", True) and (
+                    (b.pattern in ("contempt", "pursue-withdraw") and b.months_bad >= (18 if who.married else 12)
+                     and r.random() < (0.02 if who.married else 0.04))
+                    or (b.crisis_until > m and r.random() < 0.21)):          # ~75% over six months after a betrayal
+                out.append(p.family.separate(p, who))
                 continue
             elif rel == "friend" and b.trust < 0.25 and r.random() < 0.05:
                 who.left = m
