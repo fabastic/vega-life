@@ -339,11 +339,86 @@ class Family:
                 self.people.append(partner)
                 out.append({"text": f"falls in love with {name}", "valence": 0.7, "arousal": 0.7, "who": [name],
                             "key": "partner", "deltas": {}})
-        elif partner is not None and partner.seeded and m - partner.joined < 120 and \
-                r.random() < 0.003 * (1.3 - F["partner_support"]):
-            partner.gone = True
-            out.append(self._lose(p, partner, "breakup", False))
+        elif partner is not None and partner.seeded:
+            years = (m - partner.joined) / 12
+            # Separation risk is highest in the first years and falls after; marriage raises the cost of leaving.
+            hazard = (0.003 if years < 10 else 0.0007) * (1.3 - F["partner_support"]) * (0.5 if partner.married else 1.0)
+            if r.random() < hazard:
+                out.append(self.separate(p, partner))
+                return out
+        out += self._household(p, F)
         return out
+
+    # ------------------------------------------------------------------ living together, marrying, separating
+    def partner(self, month: int) -> Optional[Relative]:
+        return next((x for x in self.people if x.relation == "partner" and x.present(month)), None)
+
+    def pooled(self, month: int) -> bool:
+        pt = self.partner(month)
+        return bool(pt and pt.cohabiting)
+
+    def _household(self, p, F: FactorSet) -> List[dict]:
+        """Moving in after a year or two together and marrying later (or, in stricter cultures, marrying first):
+        one home, pooled money, and a higher cost of leaving (Lundberg & Pollak 2016; cohabitation now usually
+        precedes marriage in most rich countries)."""
+        r, m, s, out = self.rng, p.age, p.s, []
+        pt = self.partner(m)
+        if pt is None or not pt.seeded:
+            return out
+        t = m - pt.joined
+        strict = F["cultural_strictness"] > 0.6
+        if not pt.married and t >= 6 and r.random() < (0.03 if strict else 0.012) * (0.5 + F["partner_support"]) \
+                * (1.0 if pt.cohabiting or strict else 0.0):
+            pt.married = True
+            if not pt.cohabiting:
+                pt.cohabiting = True
+            s["housing"] = max(s["housing"], 0.8)
+            out.append({"text": f"marries {pt.name}, surrounded by everyone they love", "valence": 1.0, "arousal": 0.9,
+                        "who": [pt.name], "key": "wedding", "deltas": {"oxytocin": 0.12}})
+        elif not pt.cohabiting and not strict and t >= 9 and r.random() < 0.05:
+            pt.cohabiting = True
+            pt.works = r.random() < 0.75
+            s["housing"] = max(s["housing"], 0.8)
+            out.append({"text": f"moves in with {pt.name}; they argue about how to load the dishwasher", "valence": 0.7,
+                        "arousal": 0.6, "who": [pt.name], "key": "moving_in", "deltas": {"housing": 0.8}})
+        return out
+
+    def separate(self, p, rv: Relative, why: str = "") -> dict:
+        """He and his partner split: the household divides, money is settled, and if they share children the
+        ex-partner stays in his life with some conflict left over."""
+        s, m = p.s, p.age
+        kind = "own_divorce" if rv.married else "breakup"
+        shared = any(x.relation == "child" and x.alive and x.born >= rv.joined for x in self.people)
+        if rv.cohabiting:
+            s["wealth"] = clip(s["wealth"] * (0.55 if rv.married else 0.8))     # a settlement, two homes from one
+            if self.rng.random() < 0.5:
+                s["housing"] = 0.0                                               # he is the one who moves out
+        h = self._lose(p, rv, kind, False)
+        if why:
+            h["text"] = h["text"] + why
+        rv.relation, rv.cohabiting, rv.married = "ex_partner", False, False
+        rv.gone = not shared
+        rv.closeness = clip(rv.closeness * 0.4)
+        bonds = getattr(p, "bonds", None)
+        b = bonds.bonds.get(rv.name) if bonds else None
+        if b is not None:
+            b.relation, b.conflict, b.trust = "ex_partner", max(b.conflict, 0.35), min(b.trust, 0.35)
+            b.pattern = "steady" if b.pattern == "estranged" else b.pattern
+        return h
+
+    def conceive(self, p, text: str = "learns they are expecting a baby", teen: bool = False) -> dict:
+        """A pregnancy and how it will end: about 15% miscarry (more with age), about 1 in 175 are stillborn,
+        a little more often for very young mothers."""
+        r, m, y = self.rng, p.age, p.years
+        self.expecting = m + 9
+        self.trying = 0
+        u = r.random()
+        if u < MISCARRIAGE * (1 + max(0.0, y - 35) / 10):
+            self.lose_at, self.lose_kind = m + r.randint(1, 3), "miscarriage"
+        elif u < MISCARRIAGE + STILLBIRTH * (1.5 if teen else 1.0):
+            self.lose_at, self.lose_kind = m + 8, "stillbirth"
+        return {"text": text, "valence": 0.7 if not teen else -0.3, "arousal": 0.7, "who": [], "key": "child",
+                "deltas": {"dopamine": 0.1}}
 
     def _children(self, p, F: FactorSet) -> List[dict]:
         """Wanting a child, the wait, the birth, the sleepless first year, and the milestones after.
