@@ -45,7 +45,7 @@ def test_bullying_raises_stress_and_isolation():
 def test_degree_costs_money_and_helps_work():
     uni, _, _ = live_to(30, 3, {"higher_ed_path": 1.0})
     none, _, _ = live_to(30, 3, {"higher_ed_path": 0.0})
-    assert uni.s["credential"] == 1.0 and none.s["credential"] == 0.0
+    assert uni.s["credential"] == 1.0 and none.s["credential"] < 1.0       # no degree (an apprenticeship at most)
     assert uni.s["schooling"] == 0.0
 
 
