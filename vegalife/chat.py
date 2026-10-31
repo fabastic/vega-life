@@ -185,7 +185,7 @@ def _load(run_dir: Path, device):
         rng = random.Random(age * 13 + 1)
         now = lambda: present.moment(p, F, rng, "talk", keep=False).line()
         name, source = speech.name, f"checkpoint at {age / 12:.1f} years"
-        thought = lambda: p.conscious.line()
+        thought = lambda: p.conscious.chat_line() if hasattr(p.conscious, "chat_line") else p.conscious.line()
     else:
         ck = torch.load(run_dir / "mind.pt", map_location="cpu", weights_only=False)
         sh, state, age = ck["shape"], ck["model"], ck["age"]
