@@ -440,7 +440,9 @@ class Family:
             return out
         if self.expecting is not None and m >= self.expecting:
             self.expecting = None
-            if partner and r.random() < MATERNAL_DEATH:
+            if F["sex"] < 0.5 and r.random() < MATERNAL_DEATH * (2.0 if y < 18 else 1.0):
+                self.childbirth_fatal = True                 # she dies giving birth (world.py ends the life)
+            if partner and F["sex"] >= 0.5 and r.random() < MATERNAL_DEATH:
                 mum = next(x for x in self.people if x.relation == "partner" and x.present(m))
                 mum.alive, mum.died, mum.cause = False, m, "in childbirth"
                 out.append(self._lose(p, mum, "death", True))
@@ -465,15 +467,7 @@ class Family:
             if self.subfertile and chance > 0:
                 chance *= 0.15 * (3.0 if getattr(self, "ivf", False) else 1.0)
             if r.random() < chance:
-                self.expecting = m + 9
-                self.trying = 0
-                u = r.random()
-                if u < MISCARRIAGE * (1 + max(0.0, y - 35) / 10):          # rises with age
-                    self.lose_at, self.lose_kind = m + r.randint(1, 3), "miscarriage"
-                elif u < MISCARRIAGE + STILLBIRTH:
-                    self.lose_at, self.lose_kind = m + 8, "stillbirth"
-                out.append({"text": "learns they are expecting a baby", "valence": 0.7, "arousal": 0.7, "who": [],
-                            "key": "child", "deltas": {"dopamine": 0.1}})
+                out.append(self.conceive(p))
             elif chance > 0 and (chose or not kids):
                 self.trying = getattr(self, "trying", 0) + 1
                 if self.trying == 12 and self.subfertile:
