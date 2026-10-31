@@ -38,6 +38,7 @@ TOPICS = {
     "partner": ["money", "chores", "the kids", "time together", "jealousy", "his work hours", "where to live"],
     "child": ["their curfew", "their phone", "their grades", "their choices", "how they never call"],
     "friend": ["a broken promise", "a joke that went too far", "a secret that got out", "being let down"],
+    "ex_partner": ["the kids", "money", "the past", "who has the children at Christmas"],
     "grandparent": ["politics", "old-fashioned views"],
 }
 REPAIRS = {"apology": "apologises to {n} and means it", "talk": "talks it out with {n}",
@@ -71,6 +72,8 @@ class Bond:
     estranged_at: Optional[int] = None
     last: str = ""
     fit: float = 1.0                # some people simply clash: how much friction there is between these two
+    crisis_until: int = 0           # after a betrayal is discovered: months when the relationship may end
+    ignored: int = 0                # times he was not there when they needed him
     base: float = 0.6               # how close they were to begin with
 
     def to_json(self) -> dict:
