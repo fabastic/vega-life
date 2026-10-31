@@ -30,7 +30,7 @@ from vegalife.trainer import DEFAULTS       # noqa: E402
 
 RUNS = ROOT / "runs"
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
-SERVER_VERSION = 18                # the page compares this with its own and warns if the server is older
+SERVER_VERSION = 19                # the page compares this with its own and warns if the server is older
 _cache = {"at": 0.0, "procs": {}}
 TRAINER_CMD = re.compile(r"runs[\\/]+([A-Za-z0-9_-]+)[\"']?\s*$")
 
@@ -311,6 +311,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, (ROOT / "ui" / "index.html").read_bytes(), "text/html; charset=utf-8")
             if u.path == "/brain":
                 return self.send(200, (ROOT / "ui" / "brain.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/cortex":
+                return self.send(200, (ROOT / "ui" / "cortex.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/api/cortex":
+                f = run_dir(q.get("run", "")) / "cortex.json"
+                if not f.exists():
+                    return self.send(200, {"none": True, "message": "No network map yet: it is written every few "
+                                           "months by lives started with this version."})
+                return self.send(200, f.read_bytes())
+            if u.path == "/api/experiments":
+                RUNS.mkdir(exist_ok=True)
+                reps = sorted(RUNS.glob("*-report.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:20]
+                return self.send(200, [json.loads(p.read_text(encoding="utf-8")) for p in reps])
             if u.path == "/fx.js":
                 return self.send(200, (ROOT / "ui" / "fx.js").read_bytes(), "text/javascript; charset=utf-8")
             if u.path == "/theme.css":
