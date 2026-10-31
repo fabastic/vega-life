@@ -34,7 +34,7 @@ from .factors import FactorSet
 
 GOMPERTZ_A, GOMPERTZ_B = 3.5e-5, 0.09          # yearly death risk ~0.3% at 50, ~5% at 80, as in US life tables
 LOSS_WEIGHT = {"mother": 1.0, "father": 0.95, "partner": 1.0, "child": 1.15, "sibling": 0.8, "grandparent": 0.6,
-               "friend": 0.7, "pet": 0.35, "pregnancy": 0.55}
+               "friend": 0.7, "pet": 0.35, "pregnancy": 0.55, "ex_partner": 0.5}
 # Pregnancy: ~10-20% of known pregnancies end in miscarriage, mostly before 12 weeks (ACOG; Tommy's); stillbirth
 # ~1 in 175 US births (CDC), 1 in 147 in a 2025 JAMA study; maternal death ~19 per 100,000 US births. About 1 in 6
 # adults face infertility (WHO 2023): a year or more of trying without a pregnancy. Fathers grieve a lost pregnancy
@@ -42,7 +42,7 @@ LOSS_WEIGHT = {"mother": 1.0, "father": 0.95, "partner": 1.0, "child": 1.15, "si
 MISCARRIAGE, STILLBIRTH, MATERNAL_DEATH = 0.15, 0.006, 0.0002
 # Among sudden deaths of people aged 15-64, the share that are suicides (suicide is a leading cause of death under 45).
 SUICIDE_SHARE = 0.3
-OTHER_LOSS = {"divorce": 0.45, "breakup": 0.6, "dementia": 0.4}
+OTHER_LOSS = {"divorce": 0.45, "breakup": 0.6, "dementia": 0.4, "own_divorce": 0.75}
 NAMES = ["Rose", "Arthur", "Mira", "Tomas", "Leela", "Omar", "Ines", "Kai", "Noor", "Felix", "Hana", "Jonah", "Asha",
          "Lev", "Maya", "Ravi", "Zoe", "Elio", "Sana", "Theo"]
 PETS = ["Biscuit", "Pepper", "Mango", "Shadow", "Luna", "Toffee"]
@@ -73,6 +73,9 @@ class Relative:
     dementia: bool = False
     gone: bool = False              # left his life without dying (a divorce, a break-up)
     seeded: bool = True
+    cohabiting: bool = False        # a partner he lives with: one household, pooled money
+    married: bool = False
+    works: bool = True              # a partner's income counts toward the household
 
     def age(self, month: int) -> float:
         return (month - self.born) / 12
