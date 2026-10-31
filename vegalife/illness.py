@@ -145,9 +145,10 @@ D: List[Disease] = [
             lambda p, F, I: 1.2 * (_bmi(p) - 0.4) + 0.8 * (1 - p.s["motor"]) + 0.5 * p.s["allostatic_load"],
             ends=0.01, pain=0.35, sleep=0.05, onset="hurts his back lifting a box, and it never quite gets better",
             struggles=["can't sit through a film without shifting", "puts his socks on lying down"]),
-    Disease("high blood pressure", (18, 35, 90, 100), 0.0009, 1.3,
+    Disease("high blood pressure", (18, 35, 90, 100), 0.00078, 1.3,
             lambda p, F, I: 2.0 * (_bmi(p) - 0.4) + 1.2 * p.s["allostatic_load"] + 0.04 * (p.years - 45)
-            + 0.6 * _has(I, "sleep apnoea") + 0.5 * p.s["insulin_resistance"],
+            + 0.6 * _has(I, "sleep apnoea") + 0.5 * p.s["insulin_resistance"]
+            + 0.8 * F["local_pollution"] + 0.8 * (p.s.get("cortisol", 0.3) - 0.3) - 0.3,
             burden=0.02, death=1.25, silent=True, onset="is told at a routine check that his blood pressure is high",
             struggles=["takes his blood-pressure pill every morning"]),
     Disease("type 2 diabetes", (25, 45, 90, 100), 0.0012, 1.2,
@@ -183,9 +184,10 @@ D: List[Disease] = [
     Disease("heart disease", (35, 60, 100, 100), 0.0, 1.0, burden=0.12, death=1.6, onset="",
             struggles=["goes to cardiac rehab with men twice his age", "feels every twinge in his chest and wonders",
                        "takes five pills a day for his heart"]),
-    Disease("stroke", (25, 70, 100, 100), 0.0003, 1.0,
+    Disease("stroke", (25, 70, 100, 100), 0.00026, 1.0,
             lambda p, F, I: 0.06 * (p.years - 75) + 1.2 * _has(I, "high blood pressure") + 1.2 * _has(I, "atrial fibrillation")
-            + 0.6 * _has(I, "type 2 diabetes") + 0.8 * p.s["allostatic_load"],
+            + 0.6 * _has(I, "type 2 diabetes") + 0.8 * p.s["allostatic_load"]
+            + 0.6 * F["local_pollution"] + 0.5 * (p.s.get("cortisol", 0.3) - 0.3) - 0.25,
             fatal=0.1, acute=True, onset="has a stroke"),
     Disease("stroke damage", (25, 60, 100, 100), 0.0, 1.0, burden=0.2, death=1.3, onset="",
             struggles=["relearns how to speak, one word at a time", "has a hand that will not do what he tells it",
