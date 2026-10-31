@@ -722,7 +722,7 @@ class Seasons:
         for b in p.bonds.bonds.values():
             if b.pattern == "estranged" and y >= 30:
                 found["rift_" + b.name] = ("connection", f"I wish I had made things right with {b.name}.")
-        if self.counts.get("drift", 0) >= 2:
+        if self.counts.get("drift", 0) >= 2 or sum(b.ignored for b in p.bonds.bonds.values()) >= 3:
             found["friends"] = ("connection", "I wish I had stayed in touch with my friends.")
         if p.work.hours > 50 and _kids(p, 0, 144):
             found["kids_small"] = ("connection", "I wish I had been there more when my kids were little.")
