@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vega Network Map</title>
+<script>try{const t=localStorage.getItem('vega-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<script src="/fx.js" defer></script>
+<style>
+html,body{height:100%;margin:0}body{font-size:13px;display:flex;flex-direction:column}
+#wrap{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;min-width:0;background:radial-gradient(ellipse at 50% 45%,color-mix(in srgb,var(--acc2) 8%,transparent),transparent 65%)}
+canvas{width:100%;height:100%;display:block;cursor:grab}
+aside{width:340px;max-width:44%;border-left:1px solid var(--line);background:var(--panel);overflow:auto;padding:14px 16px}
+.props{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;margin-top:8px}
+.props div{display:flex;gap:8px;padding:1px 0}.props b{color:var(--muted);font-weight:500;min-width:110px}
+#tip{position:absolute;pointer-events:none;background:var(--panel-solid);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-size:12px;max-width:300px;display:none}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:20px}
+.legend span{display:inline-flex;align-items:center;gap:6px;margin-right:12px}.legend i{display:inline-block;width:9px;height:9px;border-radius:50%}
+@media (max-width:760px){#wrap{flex-direction:column}aside{width:100%;max-width:none;height:40%;border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" title="Vega Life"><span><b>VEGA</b><small>network map</small></span></a>
+  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button id="toBrain">Life map</button><button class="on">Network</button></nav>
+  <select id="run" title="Which life"></select>
+  <span id="stats" class="muted mono" style="font-size:11.5px"></span>
+  <span class="spacer"></span>
+  <button class="icon" id="theme" title="Light or dark">◐</button>
+</header>
+<div id="wrap">
+  <div id="stage"><canvas id="cv"></canvas><div id="tip"></div><div id="empty"></div></div>
+  <aside id="side">
+    <h3>His network, as regions</h3>
+    <p class="muted">Each node is one region of the network he learns with: the input layer, then for every layer its
+      <b>attention</b> (which earlier bytes matter now) and its <b>feed-forward</b> part (what that means), then the output.
+      However big he grows, there are at most a hundred or so regions.</p>
+    <div class="legend"><span><i style="background:var(--acc)"></i>still forming</span><span><i style="background:var(--acc2)"></i>executive layer</span><span><i style="background:var(--muted)"></i>critical period closed</span></div>
+    <p class="muted" style="margin-top:8px"><b>Glow</b>: how strongly the region responds to real input (activity variance).
+      <b>Line thickness</b>: how much learning flows back through it (gradient size). Recorded every few months by the trainer.</p>
+    <div id="detail"></div>
+  </aside>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const params=new URLSearchParams(location.search);
+let C=null,nodes=[],edges=[],sel=null,hover=null;
+let cam={yaw:0.6,pitch:0.28,dist:900},drag=null,SW=0,SH=0,FOC=1;
+const cv=$('cv'),ctx=cv.getContext('2d');
+async function api(p){const r=await fetch(p);return r.json()}
+async function runs(){const rs=await api('/api/runs');const want=params.get('run');
+  $('run').innerHTML=rs.map(r=>`<option value="${esc(r.name)}" ${r.name===want?'selected':''}>${esc(r.name)}</option>`).join('');load()}
+async function load(){const run=$('run').value;if(!run)return;history.replaceState(null,'','?run='+encodeURIComponent(run));
+  const d=await api('/api/cortex?run='+encodeURIComponent(run));
+  if(d.none){$('empty').style.display='flex';$('empty').textContent=d.message;nodes=[];edges=[];$('stats').textContent='';return}
+  $('empty').style.display='none';C=d;layout(d)}
+function layout(d){const L=Math.max(1,d.layers);const maxA=Math.max(1e-9,...d.nodes.map(n=>n.act||0)),maxG=Math.max(1e-9,...d.nodes.map(n=>n.grad||0)),maxP=Math.max(1,...d.nodes.map(n=>n.params));
+  nodes=d.nodes.map(n=>{const t=(n.layer+1)/(L+1),a=t*Math.PI*2.2,r=150+60*Math.sin(t*Math.PI),side=n.part==='mlp'?1:n.part==='attn'?-1:0;
+    return Object.assign(n,{x:(t-0.5)*900,y:Math.cos(a)*r*0.6+side*38,z:Math.sin(a)*r*0.8,g:(n.act||0)/maxA,gr:(n.grad||0)/maxG,s:4+10*Math.sqrt(n.params/maxP)})});
+  const by=new Map(nodes.map(n=>[n.id,n]));edges=d.edges.filter(e=>by.has(e.src)&&by.has(e.dst)).map(e=>Object.assign(e,{a:by.get(e.src),b:by.get(e.dst),f:(e.flow||0)/maxG}));
+  const frozen=d.nodes.filter(n=>n.frozen).length;
+  $('stats').textContent=`${(d.params/1e6).toFixed(1)}M params · ${d.layers} layers · width ${d.d} · ${frozen} regions settled · at ${d.age} years`}
+function proj(x,y,z){const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  const x1=cy*x+sy*z,z1=-sy*x+cy*z,y1=cp*y-sp*z1,z2=sp*y+cp*z1,dd=cam.dist+z2;if(dd<40)return null;const f=FOC/dd;return [SW/2+x1*f,SH/2-y1*f,f,dd]}
+function col(n){return n.frozen?css('--muted'):n.kind==='executive'?css('--acc2'):n.kind==='input'||n.kind==='output'?css('--warn'):css('--acc')}
+function draw(){const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==w*dpr||cv.height!==h*dpr){cv.width=w*dpr;cv.height=h*dpr}
+  SW=w;SH=h;FOC=Math.min(w,h)*1.1;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  if(!drag&&!sel&&!matchMedia('(prefers-reduced-motion: reduce)').matches)cam.yaw+=0.0015;
+  for(const n of nodes)n._p=proj(n.x,n.y,n.z);
+  for(const e of edges){const a=e.a._p,b=e.b._p;if(!a||!b)continue;ctx.globalAlpha=e.skip?0.12:0.25+0.6*e.f;ctx.strokeStyle=e.skip?css('--muted'):css('--acc');
+    ctx.lineWidth=(e.skip?0.6:0.8+5*e.f)*Math.min(1.5,(a[2]+b[2]));ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}
+  ctx.globalAlpha=1;
+  for(const n of [...nodes].filter(n=>n._p).sort((a,b)=>b._p[3]-a._p[3])){const [x,y,f]=n._p,r=Math.max(2,n.s*f*1.4),c=col(n);
+    if(n.g>0.02){ctx.globalAlpha=0.15+0.5*n.g;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r*(1.6+2.2*n.g),0,7);ctx.fill()}
+    ctx.globalAlpha=n===sel||n===hover?1:0.9;ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+    if(n===sel){ctx.strokeStyle=css('--ink');ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r+3,0,7);ctx.stroke()}}
+  ctx.globalAlpha=1;requestAnimationFrame(draw)}
+function pick(ev){const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;let best=null,bd=1e9;
+  for(const n of nodes){if(!n._p)continue;const d=Math.hypot(n._p[0]-mx,n._p[1]-my);if(d<Math.max(8,n.s*n._p[2]*1.5)&&d<bd){bd=d;best=n}}return best}
+function show(n){sel=n;if(!n){$('detail').innerHTML='';return}
+  $('detail').innerHTML=`<div class="props"><div><b>Region</b>${esc(n.label)}</div><div><b>Parameters</b>${(n.params/1e6).toFixed(2)}M</div>
+   ${n.born!=null?`<div><b>Formed at</b>${n.born} years</div>`:''}${n.kind?`<div><b>Kind</b>${esc(n.kind)}</div>`:''}
+   <div><b>Critical period</b>${n.frozen?'closed (settled, no longer learning)':'open'}</div>
+   <div><b>Activity</b>${(n.act||0).toExponential(2)}</div><div><b>Learning flow</b>${(n.grad||0).toExponential(2)}</div></div>`}
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,m:false};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>3)drag.m=true;cam.yaw+=dx*0.006;cam.pitch=Math.max(-1.2,Math.min(1.2,cam.pitch+dy*0.006));drag.x=e.clientX;drag.y=e.clientY;return}
+  hover=pick(e);const t=$('tip');if(hover){t.style.display='block';t.style.left=(e.offsetX+12)+'px';t.style.top=(e.offsetY+12)+'px';t.textContent=hover.label}else t.style.display='none'});
+cv.addEventListener('pointerup',e=>{if(drag&&!drag.m)show(pick(e));drag=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(250,Math.min(3000,cam.dist*(e.deltaY>0?1.1:0.9)))},{passive:false});
+$('run').onchange=load;$('toLives').onclick=()=>location.href='/';$('toLive').onclick=()=>location.href='/?run='+encodeURIComponent($('run').value);
+$('toBrain').onclick=()=>location.href='/brain?run='+encodeURIComponent($('run').value);
+$('theme').onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('vega-theme',t)}catch(e){}};
+runs();setInterval(()=>{if($('run').value)load()},15000);requestAnimationFrame(draw);
+</script>
+</body>
+</html>
