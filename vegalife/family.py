@@ -249,6 +249,7 @@ class Family:
                 out.append(self._lose(p, rv, "dementia", False))
         out += self._partners(p, F)
         out += self._children(p, F)
+        out += self._grown(p, F)
         out += self._friends(p)
         # this month's grief: each loss on its own course, combined
         facing = r.random() < 0.5
@@ -485,6 +486,9 @@ class Family:
             if not k.alive:
                 continue
             a = m - k.born
+            if a < 216:                                      # what his childhood was like, for what he becomes
+                k.wealth_sum = getattr(k, "wealth_sum", 0.0) + s["wealth"]
+                k.wealth_n = getattr(k, "wealth_n", 0) + 1
             if a < 12:                                       # the first year: no sleep, worry, and love
                 p.apply({"anxiety": 0.004, "allostatic_load": 0.003}, fades=True)
                 s["sleep"] = clip(s["sleep"] - 0.05)
@@ -501,6 +505,34 @@ class Family:
             if r.random() < monthly_death_risk(a / 12) + infant + (0.00003 if a < 55 * 12 else 0.0):
                 k.alive, k.died, k.cause = False, m, "suddenly"
                 out.append(self._lose(p, k, "death", True))
+        return out
+
+    GROWN = {"good": ["gets a good job and calls to tell him first", "buys a home and shows him round, proud",
+                      "gets a promotion and won't stop talking about it", "finishes a degree he never had the chance to do"],
+             "bad": ["divorce", "addiction", "prison", "debt", "job", "illness"]}
+
+    def _grown(self, p, F: FactorSet) -> List[dict]:
+        """His children's adult lives come back to him. Trouble is likelier for children who grew up poor and whose
+        bond with him is weak (poverty and parenting both carry across generations), and he can be there or not."""
+        r, m, s, out = self.rng, p.age, p.s, []
+        for k in [x for x in self.people if x.relation == "child" and x.present(m) and m - x.born >= 216]:
+            if r.random() >= 0.004:
+                continue
+            grew = getattr(k, "wealth_sum", 0.3) / max(1, getattr(k, "wealth_n", 1))
+            b = getattr(p, "bonds", None) and p.bonds.bonds.get(k.name)
+            trust = b.trust if b else 0.6
+            bad = clip(0.35 + 0.6 * (0.35 - grew) + 0.5 * (0.6 - trust))
+            if r.random() < bad:
+                kind = r.choice(self.GROWN["bad"])
+                if kind in ("addiction", "prison", "debt"):
+                    s["wealth"] = clip(s["wealth"] - 0.02 * (kind != "prison"))
+                p.apply({"anxiety": 0.03}, fades=True)
+                out.append({"text": f"his child {k.name} " + p.bonds.EVENTS[kind][0], "valence": -0.6, "arousal": 0.6,
+                            "who": [k.name], "key": "their_trouble", "deltas": {}})
+                out += p.bonds.their_event(p, F, k, kind)
+            else:
+                out.append({"text": f"his child {k.name} " + r.choice(self.GROWN["good"]), "valence": 0.8, "arousal": 0.5,
+                            "who": [k.name], "key": "child", "deltas": {"oxytocin": 0.05}})
         return out
 
     def _friends(self, p) -> List[dict]:
