@@ -45,7 +45,11 @@ from .present import Present, problem_scene
 from .scenarios import TIERS, Problem, draw, max_tier, problem_rate, render_problem, render_scenario_ex, shuffled_order
 from . import proc
 from .chat import Inbox, Talker
-from .selftalk import SelfQuestion, score_self, self_question
+from .selftalk import SelfQuestion, candidates, score_self, self_question
+from .cortex import Cortex, Probe
+from .selftalk import ASKER
+
+ASKER_PROMPT = f"{ASKER}: How are you, really?\n"
 from .optim import Lean, backward_step
 from .people import Circle
 from .speech import Speech
@@ -77,7 +81,9 @@ DEFAULTS = {
         "eval_every_months": 3,
         "memory_in_prompts": True,
         "brain_map": True,
-        "checkpoint_months": 6,        # how often the whole life is saved for resuming             # record what led to what (brainmap.py)     # False: he still forms memories, but they are not shown to him when he decides
+        "checkpoint_months": 6,        # how often the whole life is saved for resuming
+        "replay_steps": 6,             # sleep: learning steps a month on replayed memories alone (0: no replay)
+        "inner_voice_months": 3,       # how often his own network puts his state into words (0: never)             # record what led to what (brainmap.py)     # False: he still forms memories, but they are not shown to him when he decides
     },
 }
 
