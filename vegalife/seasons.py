@@ -699,9 +699,8 @@ class Seasons:
                 "Western Europe": 0.006, "Nordic countries": 0.004, "East Asia": 0.003}.get(p.school.region, 0.02)
         if self.rng.random() < rate / 12 * (0.5 + p.s["peer_risk"]) * (1.3 - F["cultural_strictness"] * 0.6):
             self.done.add("teen_pregnancy")
-            p.family.expecting = p.age + 8
-            self._live(p, "finds out she is pregnant at {0}".format(int(y)), -0.3, "teen_pregnancy",
-                       {"anxiety": 0.06, "goal_horizon": -0.03}, {}, [], out)
+            h = p.family.conceive(p, "finds out she is pregnant at {0}".format(int(y)), teen=True)
+            self._live(p, h["text"], -0.3, "teen_pregnancy", {"anxiety": 0.06, "goal_horizon": -0.03}, {}, [], out)
         return out
 
     # ------------------------------------------------------------------ regret
