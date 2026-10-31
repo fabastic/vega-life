@@ -515,10 +515,11 @@ class Person:
         if y < 1:
             hazard += 0.0004 * (1 - s["health"])
         self.hazard = hazard
-        if self.illness.fatal or self.hardships.fatal or r.random() < hazard or s["health"] <= 0.02:
+        birth = getattr(self.family, "childbirth_fatal", False)
+        if birth or self.illness.fatal or self.hardships.fatal or r.random() < hazard or s["health"] <= 0.02:
             self.alive = False
-            named = self.hardships.fatal or self.illness.cause()
-            self.cause_of_death = named if named else "his body gave out" if s["health"] < 0.3 else "natural causes"
+            named = "complications of childbirth" if birth else self.hardships.fatal or self.illness.cause(self, F)
+            self.cause_of_death = named or self.illness.attribute(self, F)   # every death has a named cause
             self.note(f"dies at {y:.1f} ({self.cause_of_death})", memorable=False)
         self.age += 1
         return self.events
@@ -530,6 +531,7 @@ class Person:
     FADE = {"anxiety": 0.25, "attachment": 0.15, "community_support": 0.15, "peer_isolation": 0.2,
             "household_friction": 0.2, "nihilism": 0.15, "goal_horizon": 0.15, "identity_rigidity": 0.1,
             "financial_paranoia": 0.15, "social_isolation": 0.2, "loneliness": 0.2, "school_belonging": 0.2,
+            "identity_crisis": 0.1, "autonomy": 0.1,
             "allostatic_load": 0.1, "motor": 0.1, "cardio": 0.1, "resilience": 0.05}
 
     def apply(self, deltas: Dict[str, float], fades: bool = False) -> None:
