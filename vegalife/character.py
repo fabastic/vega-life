@@ -126,28 +126,38 @@ class Character:
         drift = {"neuroticism": -0.3, "conscientiousness": 0.1, "agreeableness": 0.1, "extraversion": 0.0, "openness": -0.03}
         # Changeable in childhood, settling by about 25 to a lower plateau.
         rate = 0.02 if y < 12 else 0.02 * max(0.25, 1 - (y - 12) / 13)
-        for t in TRAITS:
-            target = 0.5 * self.innate[t] + 0.5 * clip(env[t]) + drift[t] * maturity
+        formed = getattr(self, "formed", None) or {t: 0.0 for t in TRAITS}
+        for t in TRAITS:                                  # lasting change fades partly back (half-life ~5 years)
+            formed[t] *= 0.9885
+            target = 0.5 * self.innate[t] + 0.5 * clip(env[t]) + drift[t] * maturity + formed[t]
             s[t] = clip(s[t] + rate * (clip(target) - s[t]))
         # Neuroticism makes him more reactive to stress.
         s["anxiety"] = clip(s["anxiety"] + 0.003 * (s["neuroticism"] - 0.5))
 
         # Mood: relative to what he has got used to (partial adaptation over about two years).
         w = p.wellbeing()
-        s["mood_baseline"] += (w - s["mood_baseline"]) / 24
+        # Hedonic adaptation: he gets used to a small setback within months, to a gain over about two years.
+        s["mood_baseline"] += (w - s["mood_baseline"]) / (8 if w < s["mood_baseline"] else 24)
         # ...and coloured by this month's chemistry: the good moments, closeness, daylight, stress (chemistry.py).
         season = getattr(getattr(p, "seasons", None), "shape", 0.0)      # midlife dip, late-life regret (seasons.py)
         season += getattr(getattr(p, "hormones", None), "mood_drag", 0.0)   # PMS, winter, low testosterone
+        season += getattr(getattr(p, "surroundings", None), "mood_drag", 0.0)   # a long commute
         s["mood"] = clip(0.5 + 1.4 * (w - s["mood_baseline"]) + 0.6 * (w - 0.45) + 0.75 * (s.get("joy", 0.5) - 0.62)
                          - season)
 
-    def nudge(self, p: Person, key: str, valence: float) -> Dict[str, float]:
-        """A life event shifts his personality a little (bigger shifts while young). Returns the shifts made."""
+    def nudge(self, p: Person, key: str, valence: float, arousal: float = 0.5) -> Dict[str, float]:
+        """A life event shifts his personality a little (bigger shifts while young), and part of the shift lasts:
+        Δtrait = plasticity(age) · salience · event vector, kept in `formed` (bounded). Returns the shifts made."""
         k = {"work": "work+" if valence > 0 else "work-", "study": "study+", "home": "home+",
              "friend": "friend+" if valence > 0 else "friend-"}.get(key, key)
         scale = 1.0 if p.years < 25 else 0.6
         done = {}
+        if not hasattr(self, "formed"):
+            self.formed = {t: 0.0 for t in TRAITS}
+        salience = abs(valence) * (0.5 + arousal)
+        eta = plasticity(p.years)
         for t, d in EVENT_NUDGES.get(k, {}).items():
+            self.formed[t] = clip(self.formed[t] + 0.4 * eta * salience * d, -0.2, 0.2)
             before = p.s[t]
             p.s[t] = clip(before + d * scale)
             done[t] = p.s[t] - before
