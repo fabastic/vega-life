@@ -64,6 +64,7 @@ class Disease:
     struggles: List[str] = field(default_factory=list)
     acute: bool = False              # an event, not a condition (it passes within the month)
     once: bool = False
+    notice: float = 0.0              # monthly chance a silent condition is found (0: the default for its kind)
 
 
 def _bmi(p) -> float:
@@ -101,6 +102,11 @@ D: List[Disease] = [
     Disease("epilepsy", (0, 1, 80, 95), 0.00001, 1.2, lambda p, F, I: 0.6 * F["genetic_risk"], ends=0.002, burden=0.05,
             death=1.6, onset="has a seizure and is diagnosed with epilepsy",
             struggles=["has a seizure in front of everyone", "is not allowed to drive until he has gone a year without a seizure"]),
+    Disease("short-sightedness", (5, 8, 18, 30), 0.0016, 1.0,
+            lambda p, F, I: 1.2 * F["screen_time"] + 0.8 * F["low_walkability"] + 0.6 * F["homework_load"]
+            + 1.4 * (p.school.region == "East Asia") - 0.8,
+            silent=True, notice=0.06, onset="gets glasses, and the board is suddenly sharp",
+            struggles=["is teased about his glasses for a week", "sits on his glasses and is half-blind until Friday"]),
     Disease("childhood cancer", (1, 2, 6, 19), 0.00003, 1.2, ends=0.06, burden=0.3, death=8.0,
             onset="is diagnosed with leukaemia",
             struggles=["loses his hair to chemotherapy", "spends months on the children's ward",
