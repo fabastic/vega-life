@@ -302,15 +302,15 @@ class Family:
                          wealth=-0.06 * (1 - s["wealth"]))
                 d["neuroticism"] = 0.04 * w * (2.0 if sudden else 1.0)   # the lasting tilt toward low mood
             else:
-                d.update(wealth=0.05, identity_crisis=0.05 * w)          # an inheritance; a generation gone
+                d.update(wealth=0.01 + 0.12 * getattr(self, "ses", 0.5), identity_crisis=0.05 * w)   # inheritance by what they had
         elif kind == "death" and rv.relation == "partner":
             d.update(income=-0.12, identity_crisis=0.25, loneliness=0.25, community_support=-0.05)
         elif kind == "death" and rv.relation == "grandparent" and child:
             d.update(caregiver_attention=-0.1 * rv.closeness)
         elif kind == "divorce":
             d.update(household_friction=-0.15, caregiver_attention=-0.08, neuroticism=0.02)
-        elif kind == "breakup":
-            d.update(loneliness=0.15, identity_crisis=0.08)
+        elif kind in ("breakup", "own_divorce"):
+            d.update(loneliness=0.15, identity_crisis=0.08 + 0.06 * (kind == "own_divorce"))
         elif kind in ("miscarriage", "stillbirth"):
             d.update(anxiety=0.06, community_support=-0.03)     # a quiet loss: few people know, fewer ask him
         p.apply(d, fades=True)
@@ -318,7 +318,8 @@ class Family:
         what = {"miscarriage": "they lose the pregnancy; the baby they were already imagining is gone",
                 "stillbirth": "their baby is stillborn", "death": f"{who} dies{' suddenly' if sudden else ''}",
                 "dementia": f"{rv.name} no longer knows who he is",
-                "divorce": "his parents separate", "breakup": f"{rv.name} and he break up"}[kind]
+                "divorce": "his parents separate", "breakup": f"{rv.name} and he break up",
+                "own_divorce": f"{rv.name} and he divorce"}[kind]
         return {"text": what, "valence": -(0.4 + 0.6 * w), "arousal": 0.5 + 0.5 * w, "who": [rv.name],
                 "key": "death" if kind == "death" else kind, "deltas": d | {"grief": round(w, 3)}}
 
