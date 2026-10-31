@@ -397,6 +397,8 @@ class Life:
         losses = []
         self.model.train()
         self.set_lr(self.lr())
+        self.cortex.attach(self.model)
+        self.cortex.recording = True
         for _ in range(steps):
             self.check_stop()
             ix = torch.randint(0, len(buf) - T - 1, (B,), generator=self.gen)
@@ -407,7 +409,86 @@ class Life:
                 loss = lm_loss(self.model, x, y, w)
             backward_step(self.opt, self.model, loss)
             losses.append(float(loss))
+        self.cortex.recording = False
         return sum(losses) / len(losses)
+
+    def _vec(self, text: str) -> torch.Tensor:
+        toks = torch.tensor([[BOS] + encode(text)[-(self.model.shape.ctx - 1):]], device=self.device)
+        with self.amp():
+            h = self.model.embed(toks)
+        return h[0].float().mean(0)
+
+    def _closest(self, item):
+        """1 if a reply sits nearer to the true answer than to the nearby wrong ones, in his own network's
+        embedding space; 0 otherwise. Verifiable: the truth is known, only the comparison uses the network."""
+        cands = candidates(item)
+        truth = item.answer - max(0, item.answer - 2)        # candidates run from answer-2 (or 0) upward
+        self.model.eval()
+        ref = torch.stack([self._vec(c) for c in cands])
+        ref = torch.nn.functional.normalize(ref, dim=1)
+
+        def near(text: str) -> float:
+            if not text.strip():
+                return 0.0
+            v = torch.nn.functional.normalize(self._vec(text.strip()[:60]), dim=0)
+            return float(int((ref @ v).argmax()) == truth)
+        return near
+
+    # ------------------------------------------------------------------ sleep, inner voice, probe
+    def sleep(self) -> None:
+        """Offline replay between months: the most salient memories of the month, recombined with older core ones,
+        learned with no new input at all (no 'Now', no speech). It moves recent experience into the weights, the way
+        hippocampal replay is thought to (Wilson & McNaughton 1994; Diekelmann & Born 2010), and leaves a dream."""
+        n = int(self.sim.get("replay_steps", 0))
+        eps = list(self.mem.episodes)
+        if n <= 0 or self.p.years < 1 or not eps:
+            return
+        age = self.p.age
+        key = lambda e: e.salience * e.strength
+        recent = sorted([e for e in eps if age - e.age <= 1], key=key, reverse=True)[:5]
+        core = sorted([e for e in eps if age - e.age > 12], key=key, reverse=True)[:3]
+        if not recent:
+            return
+        lines = [self.mem.render(e) for e in recent + core]
+        self.r.shuffle(lines)
+        text = "Sleep:\n" + "\n".join("Memory: " + x for x in lines)
+        data = encode(text)
+        T = min(int(self.sim["lm_seq"]), max(16, len(data) - 2))
+        if len(data) < T + 2:
+            return
+        buf = torch.tensor(data, dtype=torch.long)
+        self.model.train()
+        self.set_lr(self.lr() * 0.5)
+        for _ in range(n):
+            self.check_stop()
+            ix = torch.randint(0, len(buf) - T - 1, (4,), generator=self.gen)
+            x = torch.stack([buf[i: i + T] for i in ix]).to(self.device)
+            y = torch.stack([buf[i + 1: i + T + 1] for i in ix]).to(self.device)
+            with self.amp():
+                loss = lm_loss(self.model, x, y)
+            backward_step(self.opt, self.model, loss)
+        # the dream: replay running free from a fragment of the month, distorted
+        frag = self.mem.render(recent[0]).split(" ")[:4]
+        self.model.eval()
+        toks = torch.tensor([[BOS] + encode("Dream: " + " ".join(frag))], device=self.device)
+        with self.amp():
+            gen, n_ = self.model.generate(toks, 70, 1.1, stop=(10, 258))      # device RNG: saved with the checkpoint
+        self.dreams.append([round(self.p.years, 2), " ".join(frag) + decode(gen[0, : int(n_[0])].tolist())])
+
+    def inner_voice(self) -> None:
+        """From 6, his thoughts are no longer handed to him: his own network puts his state into words. Not trained
+        on (he would learn from himself in a loop); shown in the UI and used when someone talks to him."""
+        cs = self.p.conscious
+        every = int(self.sim.get("inner_voice_months", 0))
+        if every <= 0 or cs.templated or not cs.vector or self.p.age % every:
+            return
+        now = self.present.moment(self.p, self.F, self.r, keep=False).line()
+        self.model.eval()
+        toks = torch.tensor([[BOS] + encode(f"{now}\nFeel: {cs.vector}\nThought:")[-(self.model.shape.ctx - 90):]],
+                            device=self.device)
+        with self.amp():
+            gen, n_ = self.model.generate(toks, 80, 0.8, stop=(10, 258))
+        cs.inner = decode(gen[0, : int(n_[0])].tolist()).strip()[:160]
 
     def mastered(self, i: int) -> bool:
         return self.tier_n[i] >= 8 and self.tier_ema[i] >= 0.6
