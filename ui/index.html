@@ -664,6 +664,40 @@ function seasonUpdate(L){const z=L.seasons;if(!z)return;
   if(z.testosterone>0.05)h+=`<div class="meter"><span>Testosterone</span><div class="t"><i style="width:${Math.round(z.testosterone*100)}%"></i></div><em>${z.fatherhood_drop>0.1?'down '+Math.round(z.fatherhood_drop*100)+'% (father)':'baseline'}</em></div>`;
   h+='<div class="legend">Each age has its own joys and sorrows. Wellbeing dips in midlife and lifts after 60 (Blanchflower; Carstensen). Fathers\' testosterone falls 26-34% (Gettler 2011), and ~10% have postnatal depression (Paulson 2010).</div>';
   $('seasonLive').innerHTML=h}
+function econUpdate(L){const e=L.economy;if(!e)return;
+  let h=e.title?`<p><b>${esc(e.title[0].toUpperCase()+e.title.slice(1))}</b> <small class="muted">${esc(e.field)} · ${esc(e.tier_name)}</small></p>`:'<p class="muted">No occupation yet.</p>';
+  h+=`<div class="meter"><span>Money stress</span><div class="t"><i style="width:${Math.round(e.stress*100)}%"></i></div><em>${e.stress>0.55?'high':e.stress>0.3?'tight':'okay'}</em></div>`;
+  const tags=[];if(e.cheap_housing)tags.push('cheaper housing, worse air');if(e.emigrated)tags.push(`moved ${e.emigrated.from} → ${e.emigrated.to} at ${e.emigrated.at}`);if(L.residence==='care_facility')tags.push('lives in a care home');
+  if(tags.length)h+=`<p style="margin:6px 0">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</p>`;
+  if(e.recent.length)h+=e.recent.slice(-4).reverse().map(([a,t])=>`<p style="margin:3px 0;font-size:13px"><small class="mono muted">${Math.floor(a)}y</small> ${esc(t)}</p>`).join('');
+  const z=L.surroundings;if(z){const d=z.day||{};h+=`<div class="legend">A weekday</div><p class="mono" style="font-size:11.5px;margin:4px 0">${Object.entries(d).filter(([k,v])=>v>0).map(([k,v])=>`${esc(k)} ${v}h`).join(' · ')}</p>`;
+    const bits=[];if(z.income_shift)bits.push(`childhood area moves his pay ${z.income_shift>0?'+':''}${Math.round(z.income_shift*100)} points`);if(z.iq_lost)bits.push(`lead cost ${z.iq_lost} IQ points`);
+    if(z.neighbours&&z.neighbours.length)bits.push('grown-ups around him: '+z.neighbours.map(n=>n.name+' ('+n.role+')').join(', '));if(bits.length)h+=`<p class="muted" style="font-size:12px;margin:4px 0">${bits.map(esc).join(' · ')}</p>`}
+  h+='<div class="legend">His occupation follows what he studied, his ability and his record, pushed down by hiring bias. Money stress follows the household\'s cash flow and, where care is paid for, makes it harder to get.</div>';
+  $('econLive').innerHTML=h}
+function innerUpdate(L){const m=L.mind;if(!m)return;let h='';
+  h+=m.templated?'<p class="muted">His thoughts are still handed to him as sentences (until about 6).</p>'
+    :`<div class="legend" style="margin-top:0">What his own network says to itself</div><p class="now-line" style="font-size:14px;margin:6px 0">${esc(m.inner||'(nothing yet)')}</p>`;
+  if(m.vector)h+=`<p class="mono muted" style="font-size:11px;margin:4px 0">${esc(m.vector)}</p>`;
+  const d=L.dreams||[];if(d.length)h+=`<div class="legend">Dreams (sleep replay running free)</div>`+d.slice(-3).reverse().map(([a,t])=>`<p style="margin:3px 0;font-size:13px"><small class="mono muted">${Math.floor(a)}y</small> <i>${esc(t)}</i></p>`).join('');
+  if(L.self_knowledge!=null)h+=`<div class="meter"><span>Self-knowledge</span><div class="t"><i style="width:${Math.max(0,Math.round(L.self_knowledge*100))}%"></i></div><em>R² ${L.self_knowledge}</em></div>`;
+  if(m.off||(L.ablate||[]).length)h+=`<p><span class="tag">switched off: ${esc((L.ablate||[]).join(', '))}</span></p>`;
+  h+='<div class="legend">From 6 his thoughts arrive as numbers and his own network puts them into words. Each night the month\'s strongest memories are replayed and learned again, with no new input; the dream is that replay running free. Self-knowledge: how well a linear probe reads his mood and worries from his network with nothing in the prompt.</div>';
+  $('innerLive').innerHTML=h}
+async function expUpdate(){try{const xs=await api('/api/experiments');
+  $('expLive').innerHTML=xs.length?xs.map(x=>`<div class="ppl"><span><b>${esc(x.name)}</b> <small>from ${esc(x.from)} · ${x.months} months · arms ${Object.keys(x.arms).map(esc).join(', ')}</small></span><span class="st">${Object.entries(x.vs_control).map(([a,d])=>a==='control'?'':`${esc(a)}: wellbeing ${d.wellbeing>0?'+':''}${d.wellbeing??'?'}`).filter(Boolean).join(' · ')}</span></div>`).join(''):'<p class="muted">No experiments yet.</p>'}catch(e){}}
+const TABMAP={life:['familyLive','bondsLive','seasonLive','friendsLive','log','choices','memLive','story','nowLive'],mind:['mindLive','mentalLive','biasLive','innerLive'],
+  body:['chemLive','healthLive','hormLive','hardLive'],world:['workLive','econLive','schoolingLive','schoolLive','phoneLive'],talk:['chatLog'],
+  lab:['netViz','cLoss','cRew','heard','babble','items','stateCards','ftable','expLive']};
+function tabOf(card){for(const [t,ids] of Object.entries(TABMAP))for(const id of ids){if(card.id===id||card.querySelector('#'+id))return t}return card.classList.contains('lab')?'lab':'life'}
+function setTab(t){try{localStorage.setItem('vega-tab',t)}catch(e){}
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  const cards=[...document.querySelectorAll('#live .card')].filter(c=>!c.closest('.hero'));
+  for(const c of cards){c.style.display=(t==='all'||tabOf(c)===t)?'':'none'}
+  document.querySelectorAll('#live > .grid').forEach(g=>{g.style.display=[...g.children].some(c=>c.style.display!=='none')?'':'none'})}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+setTimeout(()=>{let t='life';try{t=localStorage.getItem('vega-tab')||'life'}catch(e){}setTab(t)},0);
+setInterval(expUpdate,30000);setTimeout(expUpdate,1500);
 function workUpdate(L){const w=L.work;if(!w)return;let h;
   if(w.retired)h='<p><b>Retired.</b></p>';else if(w.on_leave)h='<p><b>Off work</b> after burning out.</p>';
   else if(w.searching_months)h=`<p><b>Looking for work</b> for ${w.searching_months} months: ${w.applications} applications, ${w.rejections} rejections.</p>`;
@@ -679,7 +713,7 @@ function collapse(log){const out=[];for(const e of log){const p=out[out.length-1
 async function poll(){if(!RUN)return;let L;try{L=await api('/api/live?run='+encodeURIComponent(RUN))}catch(e){$('status').textContent=e.message;return}
   if(L.status==='starting'){$('status').textContent='starting (loading PyTorch)';return}
   $('status').textContent=`${RUN} · ${L.status} on ${L.device} · ${Math.round(L.elapsed_s/60)} min${L.gpu_peak_gb?' · GPU peak '+L.gpu_peak_gb+' GB':''}`;
-  const m=L.model;setNet(m);loadTalk();brainUpdate(L);peopleUpdate(L);chemUpdate(L);workUpdate(L);mindUpdate(L);bondsUpdate(L);schoolUpdate(L);phoneUpdate(L);mentalUpdate(L);biasUpdate(L);seasonUpdate(L);healthUpdate(L);hormUpdate(L);hardUpdate(L);storyUpdate(L);choicesUpdate(L);
+  const m=L.model;setNet(m);loadTalk();brainUpdate(L);peopleUpdate(L);chemUpdate(L);workUpdate(L);mindUpdate(L);bondsUpdate(L);schoolUpdate(L);phoneUpdate(L);mentalUpdate(L);biasUpdate(L);seasonUpdate(L);healthUpdate(L);hormUpdate(L);hardUpdate(L);econUpdate(L);innerUpdate(L);storyUpdate(L);choicesUpdate(L);
   $('now').innerHTML=[['age',`${Math.floor(L.age_months/12)}y ${L.age_months%12}m`],['stage',L.stage_label],['wellbeing',L.wellbeing.toFixed(3)],['parameters',(m.params/1e6).toFixed(m.params<1e8?2:0)+'M'],['shape',`${m.layers} × ${m.d}, ${m.heads} heads`],['alive',L.alive?'yes':'died: '+L.cause_of_death]].map(([k,v])=>`<div><b>${esc(v)}</b><span>${k}</span></div>`).join('');
   $('growthBar').innerHTML=L.schedule.map(s=>`<div class="${m.params>=s.params?'done':''} ${s.within_cap?'':'cap'}" title="age ${s.age}: ${(s.params/1e6).toFixed(1)}M">${s.age}y</div>`).join('');
   $('growthNote').textContent=`growth milestones by age: lit = reached; faded = beyond the ${L.profile} cap of ${(L.cap/1e6).toFixed(0)}M · ${L.optimizer||''}`;
@@ -710,6 +744,7 @@ async function poll(){if(!RUN)return;let L;try{L=await api('/api/live?run='+enco
   }
 }
 init();
+document.getElementById('toCortex').onclick=()=>location.href='/cortex?run='+encodeURIComponent(RUN||'');
 </script>
 </body>
 </html>
