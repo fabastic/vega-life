@@ -31,12 +31,55 @@ class SelfQuestion:
     tier: int = 0
 
 
-def score_self(q: "SelfQuestion", text: str) -> float:
-    """1 if the first number in his answer is the true one ("I am 16." counts), 0 if wrong, -0.3 if no number."""
-    m = re.search(r"-?\d+", text[:40])
-    if not m:
+NUMBER_WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen "
+    "eighteen nineteen".split())}
+TENS = {w: 10 * (i + 2) for i, w in enumerate("twenty thirty forty fifty sixty seventy eighty ninety".split())}
+NONE_WORDS = ("none", "no ", "not any", "don't have any", "do not have any")
+
+
+def numbers_in(text: str) -> List[int]:
+    """Every number he states, in digits or words ("16", "sixteen", "twenty-one", "none"), wherever it comes."""
+    t = text.lower()
+    out = [int(x) for x in re.findall(r"\d+", t)]
+    words = re.findall(r"[a-z]+", t)
+    i = 0
+    while i < len(words):
+        w = words[i]
+        if w in TENS:
+            n = TENS[w]
+            if i + 1 < len(words) and words[i + 1] in NUMBER_WORDS and NUMBER_WORDS[words[i + 1]] < 10:
+                n += NUMBER_WORDS[words[i + 1]]
+                i += 1
+            out.append(n)
+        elif w in NUMBER_WORDS:
+            out.append(NUMBER_WORDS[w])
+        i += 1
+    if not out and any(x in t for x in NONE_WORDS):
+        out.append(0)
+    return out
+
+
+def score_self(q: "SelfQuestion", text: str, closest: Optional[float] = None) -> float:
+    """Is what he says about himself true? Checked by meaning, not position: the true number stated anywhere, in
+    digits or words, with no other number claimed (1); true but mixed with a wrong one (0.4); wrong (0); nothing
+    numeric (-0.3). If `closest` is given (1 when his reply sits nearest, in his own network's embedding, to the
+    true answer among nearby wrong ones; see trainer.py), it makes up 40% of the score."""
+    nums = numbers_in(text[:80])
+    if not nums:
         return -0.3
-    return 1.0 if int(m.group()) == q.answer else 0.0
+    said = q.answer in nums
+    text_score = (1.0 if all(n == q.answer for n in nums) else 0.4) if said else 0.0
+    return text_score if closest is None else 0.6 * text_score + 0.4 * closest
+
+
+CANDIDATE = {"self_age": "I am {n}.", "self_friends": "I have {n} close friends.", "self_children": "I have {n} children."}
+
+
+def candidates(q: "SelfQuestion") -> List[str]:
+    """The true answer and nearby wrong ones, for the embedding check."""
+    form = CANDIDATE.get(q.key, "{n}.")
+    return [form.format(n=n) for n in range(max(0, q.answer - 2), q.answer + 3)]
 
 
 def _kids(p) -> list:
