@@ -393,3 +393,44 @@ and that grief is more often prolonged.
   first screenings, school reunions, "overqualified", senior discounts, clearing a parent's house, video calls with
   grandchildren, volunteering, stairlifts, a dementia diagnosis, hay fever, concussion, two jobs, legal fights, a
   missing person, the national team winning.
+
+## Round 2: state that changes, money, place, and the network itself
+
+**Moments now change his life**
+- **Affairs** (`bonds.py`): guilt every month, and discovery that crashes trust and usually ends the marriage.
+- **Separation and divorce** (`family.py`): the household splits, money is settled, and an ex with shared children
+  stays in his life.
+- **Moving in and marrying** (`family.py`): one home, pooled income, and a higher cost of leaving.
+- **Care homes** (`seasons.py`): no work, capped autonomy, and bonds that cool when family don't visit.
+- **Dyslexia** (`mental.py`): a trait from birth that slows reading unless he is supported.
+- **Short-sightedness** (`illness.py`): it holds back school until he gets glasses.
+- **Other people's big moments** (`bonds.py`): friends, siblings and grown children go through divorces, illness,
+  babies, prison and debt. He shows up, and the bond deepens at a cost to his time, or he doesn't, and it cools.
+
+**Calibration**
+- Every death has a named cause, weighted toward the US mix of causes.
+- High blood pressure and stroke now depend on pollution and stress.
+- He gets used to small setbacks within months (hedonic adaptation).
+- Lasting events reshape his personality, most strongly before 18: Δtrait = plasticity(age) · salience · event.
+- Teen pregnancies go through the full pregnancy path.
+
+**Money and place**
+- **`economy.py`:** an occupation by field and tier, pushed down by hiring bias and a criminal record. Household cash
+  flow becomes money stress, which limits care where care is paid for and can force a move to cheaper, more
+  polluted housing. He may emigrate. Inheritance scales with what his parents had.
+- **`surroundings.py`:** neighbourhood opportunity, green space and city life are counted as doses over his
+  childhood years. Also lead, noise, heat at school, family income on a log scale, his commute, a weekday time
+  budget, and named adults (a coach, a teacher, a neighbour).
+
+**The network**
+- Template thoughts fade between 3 and 6. After that he is given his state as numbers (`Feel: mood 42, worry 61,
+  ...`), and his own network writes his inner voice from them.
+- Self-answers are scored by meaning: the true number stated anywhere, in digits or words, plus an
+  embedding check in his own network.
+- A linear probe reads his mood and worries from his network when nothing in the prompt tells it.
+- Sleep replays the month's strongest memories with no new input, and leaves a dream.
+- `cortex.py` and `/cortex` draw his network as regions, glowing with activity and learning.
+
+**Experiments**
+`python -m vegalife.experiment` forks a saved life into arms that differ in one thing: a factor, his state, a person
+removed, or a part of him switched off. It lives each arm forward and writes a comparison report.
