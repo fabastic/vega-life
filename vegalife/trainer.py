@@ -658,6 +658,20 @@ class Life:
             for line in lines[self.interventions_seen:]:
                 try:
                     it = json.loads(line)
+                    if "state" in it:                       # an experiment sets part of his state directly
+                        for k, v in it["state"].items():
+                            self.p.s[k] = max(0.0, min(1.0, float(v)))
+                        self.say(f"intervention: state {it['state']}")
+                        continue
+                    if "remove" in it:                      # an experiment takes someone out of his life
+                        rv = next((x for x in self.p.family.people if x.present(self.p.age)
+                                   and (x.relation == it["remove"] or x.name == it["remove"])), None)
+                        if rv is not None:
+                            rv.alive, rv.died, rv.cause = False, self.p.age, "suddenly"
+                            h = self.p.family._lose(self.p, rv, "death", True)
+                            self.p.note(h["text"], h["valence"], h["arousal"], who=h["who"], key=h["key"], deltas=h["deltas"])
+                            self.say(f"intervention: {h['text']}")
+                        continue
                     if "friend" in it:
                         d = dict(it["friend"])
                         d["joined_years"] = self.p.years
