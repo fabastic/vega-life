@@ -218,14 +218,30 @@ class Life:
         self.stop = threading.Event()
         Control(run_dir, self.stop).start()
         self.inbox = Inbox(run_dir)                         # people talking to him from the UI (chat.py)
+        self.ablate = set(self.cfg.get("ablate", []))       # experiments: parts of him switched off (experiment.py)
+        self.dreams = collections.deque(maxlen=40)          # (age, what replay produced) from sleep
+        self.cortex = Cortex()                              # his network's regions, as a second brain map
+        self.probe = Probe()                                # does his network carry his state without being told?
         self._talker = None
         if ck is None:
             self.say(f"born. network: {self._shape_text()}")
         else:
             self._restore(ck)
             self.say(f"resumed from the checkpoint at {self.p.years:.2f} years. network: {self._shape_text()}")
+        self._ablate()
 
     # ------------------------------------------------------------------ helpers
+    def _ablate(self) -> None:
+        """Experiments switch parts of him off (experiment.py): his conscience, his memories in decisions and
+        speech, sleep replay, his thoughts."""
+        if "conscience" in self.ablate:
+            self.p.conscious.off = True
+        if "memory" in self.ablate:
+            self.sim["memory_in_prompts"] = False
+            self.speech.mem = None
+        if "replay" in self.ablate:
+            self.sim["replay_steps"] = 0
+
     def _shape_text(self) -> str:
         c = self.model.config()
         return f"{c['params'] / 1e6:.2f}M params, {c['layers']} layers, width {c['d']}, {c['heads']} heads"
@@ -267,7 +283,7 @@ class Life:
             chat_r = random.Random(int(self.cfg["seed"]) * 17 + 5)
             now = lambda: self.present.moment(self.p, self.F, chat_r, "talk", keep=False).line()
             self._talker = Talker(self.model, self.device, self.amp, self.speech.name, self.mem, now, self.p.age,
-                                  int(self.cfg["seed"]), thought=lambda: self.p.conscious.line())
+                                  int(self.cfg["seed"]), thought=lambda: self.p.conscious.chat_line())
         self._talker.model, self._talker.mem, self._talker.age = self.model, self.mem, self.p.age
         try:
             self.inbox.serve(lambda: self._talker, "live")
