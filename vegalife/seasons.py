@@ -662,6 +662,33 @@ class Seasons:
             p.mind.begin("depression", p.age)
         return out
 
+    def _care_home(self, p, F) -> List[dict]:
+        """Living in a care facility: no work or commute, a narrow day, little say over it; staff and residents
+        for company, and family bonds that cool when they do not visit."""
+        out: List[dict] = []
+        if getattr(p, "residence", "home") != "care_facility":
+            return out
+        s, r = p.s, self.rng
+        s["employed"] = 0.0
+        p.work.retired = True
+        s["autonomy"] = min(s["autonomy"], 0.35)
+        s["community_support"] = clip(s["community_support"] + 0.002)
+        for x in p.family.present(p.age):
+            if x.relation in ("child", "sibling", "partner", "grandparent") or x.relation == "ex_partner":
+                b = p.bonds.bonds.get(x.name)
+                if b is None:
+                    continue
+                if r.random() < 0.3 + 0.5 * x.closeness:          # a visit this month
+                    p.chem.level["oxytocin"] = clip(p.chem.level["oxytocin"] + 0.03)
+                else:
+                    b.trust = clip(b.trust - 0.004)
+                    x.closeness = clip(x.closeness - 0.003)
+        if r.random() < 0.02:
+            self._live(p, r.choice(["waits by the window on Sunday for a visit that does not come",
+                                    "plays cards with the woman in the next room and wins",
+                                    "is helped to wash by a carer whose name he can't remember"]), -0.2, "care", {}, {}, [], out)
+        return out
+
     def _teen_pregnancy(self, p, F) -> List[dict]:
         """Teen births per year: about 1.3% in the US, under 1% in Western Europe, about 10% in Sub-Saharan Africa."""
         y, out = p.years, []
