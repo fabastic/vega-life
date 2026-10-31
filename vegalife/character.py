@@ -45,6 +45,13 @@ def clip(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 # How a life event nudges personality (key from Person.note). Small, as the evidence says; work events larger.
+def plasticity(y: float) -> float:
+    """How much a lasting event can reshape a trait: high through childhood and adolescence, falling sharply from
+    18 to about 30, a small floor after (Roberts & DelVecchio 2000: rank-order stability plateaus around 50; Bleidorn
+    et al. 2022: change continues across adulthood, smaller)."""
+    return 1.0 if y < 18 else max(0.15, 1.0 - 0.85 * (y - 18) / 12)
+
+
 EVENT_NUDGES: Dict[str, Dict[str, float]] = {
     "work+": {"conscientiousness": 0.03, "neuroticism": -0.01},       # first job, finding work
     "work-": {"neuroticism": 0.03, "conscientiousness": -0.01},       # losing a job
