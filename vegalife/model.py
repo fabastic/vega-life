@@ -131,6 +131,16 @@ class Mind(nn.Module):
                 x = b(x, cos, sin)
         return self.norm(x) @ self.emb.weight.t()
 
+    @torch.no_grad()
+    def embed(self, idx) -> torch.Tensor:
+        """The final hidden state (before the output head), one vector per position. Used to compare what he says
+        with the truth by meaning, and to probe what his network knows about him."""
+        cos, sin = self._rotary(idx.device)
+        x = self.emb(idx)
+        for b in self.blocks:
+            x = b(x, cos, sin)
+        return self.norm(x)
+
     # ------------------------------------------------------------------ generation
     @torch.no_grad()
     def generate(self, idx, max_new: int, temperature: float = 1.0, stop: tuple = (10, EOS), generator=None):
