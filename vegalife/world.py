@@ -411,7 +411,9 @@ class Person:
             # AI doing entry-level work removes the apprentice phase.
             learn = 0.012 * (1 - 0.7 * F["ai_entry_automation"]) if y < 36 else 0.003
             s["skill_value"] = clip(s["skill_value"] + learn)
-            s["income"] = toward(s["income"], 0.3 + 0.7 * s["skill_value"], 0.05)
+            occ = self.economy.income_target(self)               # his occupation's pay path (economy.py)
+            s["income"] = toward(s["income"], 0.3 + 0.7 * s["skill_value"] if occ is None
+                                 else 0.5 * occ + 0.5 * (0.3 + 0.7 * s["skill_value"]), 0.05)
         elif y >= 19:
             s["income"] = toward(s["income"], 0.05, 0.1)
 
@@ -438,12 +440,16 @@ class Person:
                 s["employed"] = 1.0
                 self.note("finds work", 0.5, 0.5, key="work")
             elif s["employed"] > 0.5 and r.random() < 0.004 * (1 + F["skill_obsolescence"] * (y > 36)) \
-                    * (1.6 - 1.2 * F["workplace_security"]):
+                    * (1.6 - 1.2 * F["workplace_security"]) * self.economy.layoff_mult(F):
                 s["employed"] = 0.0
                 self.note("loses his job", -0.7, 0.7, key="work")
         if y >= 19:
             spend = 0.004 + 0.003 * (1 - s["housing"] * 0.5)
-            s["wealth"] = clip(s["wealth"] + 0.006 * s["income"] * s["employed"] - spend * 0.5)
+            together = self.family.pooled(self.age)           # one household: a second income, shared costs
+            pt = self.family.partner(self.age)
+            partner_pay = 0.004 * (pt is not None and together and pt.works)
+            s["wealth"] = clip(s["wealth"] + 0.006 * s["income"] * s["employed"] + partner_pay
+                               - spend * (0.4 if together else 0.5))
             if y >= 66:
                 s["employed"] = 0.0 if r.random() < 0.05 else s["employed"]
                 s["pension"] = toward(s["pension"], 0.5 * s["wealth"] + 0.3, 0.05)
