@@ -637,6 +637,17 @@ class Life:
         with self.amp():
             gen, n_ = self.model.generate(toks, 80, 0.8, stop=(258,))
         self.babble = decode(gen[0, : int(n_[0])].tolist())
+        # Does his network carry how he is, with no context telling it? (a linear probe; see cortex.Probe)
+        h = self._vec(f"{ASKER_PROMPT}{self.speech.name}:")
+        r2 = self.probe.add(h, [self.p.s.get(k, 0.0) for k in Probe.TARGETS])
+        if r2 is not None:
+            self.curves.setdefault("self_knowledge", []).append([round(self.p.years, 2), round(r2, 4)])
+        self.cortex.attach(self.model)
+        self.cortex.recording = True
+        with torch.no_grad(), self.amp():
+            self.model(x[:2])
+        self.cortex.recording = False
+        write_json(self.dir / "cortex.json", self.cortex.snapshot(self.model, self.p.years))
 
     def check_interventions(self) -> bool:
         path = self.dir / "interventions.jsonl"
