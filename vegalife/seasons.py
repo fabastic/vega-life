@@ -397,6 +397,17 @@ MOMENTS: List[Moment] = [
            {"anxiety": 0.04}, once=True),
     Moment("national_team", (6, 95), lambda p, F: 0.003, ["watches his country win a big match and the whole street celebrates"],
            0.8, chem={"endorphins": 0.05}),
+    # --- the family pet, as an animal with its own nature -----------------------------------------------------------
+    Moment("pet_steals", (2, 95), lambda p, F: 0.02 * bool(_present(p, "pet")) * (_pet(p) == "greedy"),
+           ["catches {pet} with a whole sausage stolen off the table"], 0.6, chem={"endorphins": 0.03}),
+    Moment("pet_fireworks", (2, 95), lambda p, F: 0.01 * bool(_present(p, "pet")) * (_pet(p) == "anxious"),
+           ["sits under the table with {pet} all through the fireworks"], 0.2, chem={"oxytocin": 0.03}),
+    Moment("pet_vet", (10, 95), lambda p, F: 0.006 * bool(_present(p, "pet")), ["takes {pet} to the vet; the bill is enormous"],
+           -0.2, {"wealth": -0.01}),
+    Moment("pet_lost", (4, 95), lambda p, F: 0.003 * bool(_present(p, "pet")) * (_pet(p) == "adventurous"),
+           ["searches the streets all night for {pet}, who turns up at dawn, muddy and pleased"], -0.2),
+    Moment("pet_waits", (3, 95), lambda p, F: 0.02 * bool(_present(p, "pet")) * (_pet(p) == "loyal"),
+           ["comes home to {pet} waiting at the door, as always"], 0.7, chem={"oxytocin": 0.05}),
     # --- little joys and annoyances at any age ----------------------------------------------------------------------
     Moment("found_money", (6, 100), lambda p, F: 0.004, ["finds money in an old coat pocket"], 0.6),
     Moment("just_caught", (10, 100), lambda p, F: 0.006, ["catches the train with seconds to spare"], 0.4),
@@ -519,17 +530,20 @@ class Seasons:
             if chance <= 0 or r.random() >= chance:
                 continue
             text = r.choice(mo.texts)
-            need = [k for k in ("friend", "partner", "parent", "child") if "{" + k + "}" in text]
+            need = [k for k in ("friend", "partner", "parent", "child", "pet") if "{" + k + "}" in text]
             if any(fill.get(k) is None for k in need):
                 continue
             if mo.once:
                 self.done.add(mo.key)
-            text = text.format(**{k: fill.get(k) or "" for k in ("friend", "partner", "parent", "child")})
+            text = text.format(**{k: fill.get(k) or "" for k in ("friend", "partner", "parent", "child", "pet")})
             self._live(p, text, mo.valence, mo.key, mo.deltas, mo.chem, [fill[k] for k in need], out)
+            if mo.act is not None:
+                mo.act(p, F)
         out += self._birthday(p, F)
         out += self._parenthood(p, F)
         out += self._scam(p, F)
         out += self._teen_pregnancy(p, F)
+        out += self._care_home(p, F)
         # the shape of a life, applied to his mood (character.py): a midlife dip and a gentler old age
         # (Blanchflower; Carstensen), and regret weighing more in the life review of old age. Recent surveys find
         # the young now the least happy of all (Blanchflower et al. 2024-25), which his twenties already show.
@@ -548,7 +562,8 @@ class Seasons:
         old = _old_parent(p, 70)
         kid = _kids(p)
         part = _present(p, "partner")
-        return {"friend": _friend(p), "partner": part[0].name if part else None,
+        pets = _present(p, "pet")
+        return {"friend": _friend(p), "partner": part[0].name if part else None, "pet": pets[0].name if pets else None,
                 "parent": (old or par)[0].name if (old or par) else None, "child": kid[0].name if kid else None}
 
     def _live(self, p, text, valence, key, deltas, chem, who, out):
