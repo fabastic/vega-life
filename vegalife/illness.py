@@ -102,9 +102,10 @@ D: List[Disease] = [
     Disease("epilepsy", (0, 1, 80, 95), 0.00001, 1.2, lambda p, F, I: 0.6 * F["genetic_risk"], ends=0.002, burden=0.05,
             death=1.6, onset="has a seizure and is diagnosed with epilepsy",
             struggles=["has a seizure in front of everyone", "is not allowed to drive until he has gone a year without a seizure"]),
-    Disease("short-sightedness", (5, 8, 18, 30), 0.0016, 1.0,
+    Disease("short-sightedness", (5, 8, 18, 30), 0.0009, 1.0,      # time outdoors protects (Rose et al. 2008)
             lambda p, F, I: 1.2 * F["screen_time"] + 0.8 * F["low_walkability"] + 0.6 * F["homework_load"]
-            + 1.4 * (p.school.region == "East Asia") - 0.8,
+            + 1.4 * (p.school.region == "East Asia") - 0.8
+            - 0.35 * (getattr(getattr(p, "surroundings", None), "day", {}).get("outdoors", 1.5) - 1.5),
             silent=True, notice=0.06, onset="gets glasses, and the board is suddenly sharp",
             struggles=["is teased about his glasses for a week", "sits on his glasses and is half-blind until Friday"]),
     Disease("childhood cancer", (1, 2, 6, 19), 0.00003, 1.2, ends=0.06, burden=0.3, death=8.0,
@@ -221,7 +222,7 @@ D: List[Disease] = [
     Disease("Parkinson's disease", (50, 70, 90, 100), 0.00006, 1.5, lambda p, F, I: 1.0 * p.s["neurodegeneration"],
             burden=0.15, death=1.8, onset="notices a tremor in his hand that will not stop: Parkinson's",
             struggles=["takes ten minutes to do up a shirt", "freezes in doorways", "shuffles where he used to stride"]),
-    Disease("frailty", (70, 85, 100, 100), 0.0025, 0.8,
+    Disease("frailty", (70, 85, 100, 100), 0.003, 0.8,
             lambda p, F, I: 2.0 * (0.5 - p.s["motor"]) + 1.0 * p.s["social_isolation"] + 0.3 * len(I.active) / 3
             - 0.3,
             burden=0.15, death=1.3, sleep=0.05, onset="is told he is frail: weaker, slower, a smaller appetite",
@@ -293,25 +294,30 @@ class Illness:
             return max(serious, key=serious.get) if serious else None
         w = self._wear(p, F)
         names = list(serious) + list(w)
-        weights = [2.0 * serious[c] for c in serious] + [w[k] for k in w]
+        weights = [1.2 * serious[c] * {"dementia": 0.7, "Alzheimer's disease": 0.7, "heart disease": 0.7}.get(c, 1.0) for c in serious]             + [w[k] for k in w]          # dementia is often present but less often the underlying cause (CDC)
         return self.rng.choices(names, weights)[0]
 
     def _wear(self, p, F: FactorSet) -> dict:
         """When no single condition stands out, name the death by what has worn down most: the heart and vessels,
         cancer, the brain, the lungs, the kidneys, infection, or plain frailty. Weights aim at the US mix of causes
-        (heart disease ~21%, cancer ~18%, stroke ~5%, COPD ~5%, Alzheimer's ~4%, diabetes ~3%, kidney ~2%)."""
+        (heart disease ~21%, cancer ~18%, stroke ~5%, COPD ~5%, Alzheimer's ~4%, diabetes ~3%, kidney ~2%, falls,
+        infections and sepsis, high blood pressure and Parkinson's making up much of the rest)."""
         s, y, a = p.s, p.years, self.active
         alcohol = "alcohol use" in p.mind.active or p.mind.had.get("alcohol use", 0) > 1
-        w = {"heart disease": 0.3 + 1.0 * (1 - s["cardio"]) + 0.4 * ("high blood pressure" in a) + 0.4 * s["insulin_resistance"],
-             "cancer": 0.9 + 0.8 * s["inflammation"] + 0.6 * s["methylation_risk"] + 0.8 * _smoked(p),
-             "stroke": 0.08 + 0.2 * ("high blood pressure" in a) + 0.25 * ("atrial fibrillation" in a),
-             "dementia": 0.05 + 2.5 * s["neurodegeneration"],
+        w = {"heart disease": 0.05 + 0.45 * (1 - s["cardio"]) + 0.4 * ("high blood pressure" in a) + 0.4 * s["insulin_resistance"],
+             "cancer": 0.33 + 0.45 * s["inflammation"] + 0.6 * s["methylation_risk"] + 0.8 * _smoked(p),
+             "stroke": 0.04 + 0.15 * ("high blood pressure" in a) + 0.25 * ("atrial fibrillation" in a),
+             "dementia": 0.04 + 0.9 * s["neurodegeneration"],
              "COPD": 0.03 + 0.4 * _smoked(p) + 0.15 * F["local_pollution"],
              "kidney failure": 0.05 + 0.4 * s["insulin_resistance"],
              "pneumonia": 0.08 + 0.25 * max(0.0, (y - 80) / 10),
              "diabetes": 0.03 + 0.5 * ("type 2 diabetes" in a),
              "liver disease": 0.6 * alcohol,
-             "frailty of old age": max(0.0, (y - 82) / 8) * (1.3 - s["motor"])}
+             "frailty of old age": max(0.0, (y - 82) / 8) * (1.3 - s["motor"]),
+             "a fall at home": max(0.0, (y - 70) / 20) * (1.3 - s["motor"]) * 0.4,
+             "an accident": 0.12,                       # unintentional injury, ~7% of US deaths (CDC 2022)
+             "sepsis": 0.1 + 0.1 * max(0.0, (y - 70) / 10),
+             "high blood pressure": 0.15 * ("high blood pressure" in a)}
         return {k: max(0.0, v) for k, v in w.items()}
 
     def attribute(self, p, F: FactorSet) -> str:
