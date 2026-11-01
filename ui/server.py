@@ -27,10 +27,11 @@ from vegalife.brainmap import BrainMap      # noqa: E402
 from vegalife.family import Family          # noqa: E402
 from vegalife.people import Circle          # noqa: E402
 from vegalife.trainer import DEFAULTS       # noqa: E402
+from vegalife import story                  # noqa: E402
 
 RUNS = ROOT / "runs"
 NAME = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
-SERVER_VERSION = 19                # the page compares this with its own and warns if the server is older
+SERVER_VERSION = 20                # the page compares this with its own and warns if the server is older
 _cache = {"at": 0.0, "procs": {}}
 TRAINER_CMD = re.compile(r"runs[\\/]+([A-Za-z0-9_-]+)[\"']?\s*$")
 
@@ -209,6 +210,79 @@ def launch(d: Path, device: str = "", resume: bool = False) -> None:
     spawn_detached(args, d / "trainer.log", resume, env)
 
 
+# ---------------------------------------------------------------------------- tools: experiments and the population check
+def any_life_running() -> bool:
+    return any(d.is_dir() and (d / "pid").exists() and proc.alive(d) for d in RUNS.iterdir()) if RUNS.exists() else False
+
+
+def start_experiment(body: dict) -> dict:
+    """Fork a life at its last checkpoint into arms and run them one after another (vegalife/experiment.py). On the
+    CPU whenever any life is running, so the GPU is never shared."""
+    src = run_dir(body.get("run", ""))
+    if not (src / "resume.pt").exists():
+        raise ValueError(f"{src.name} has no checkpoint to fork from")
+    name = str(body.get("name", "")).strip() or f"{src.name}-whatif-{time.strftime('%m%d%H%M')}"
+    if not NAME.match(name):
+        raise ValueError("experiment names use letters, digits, - and _ only")
+    if (RUNS / f"{name}-running.json").exists() or (RUNS / f"{name}-report.json").exists():
+        raise ValueError(f"an experiment called {name} already exists")
+    months = max(1, min(240, int(body.get("months", 12))))
+    arms = [str(a).strip() for a in body.get("arms", []) if str(a).strip()]
+    if not arms:
+        raise ValueError("give at least one arm, like poor:state.wealth=0.02")
+    from vegalife.experiment import parse_arm
+    for a in arms:
+        try:
+            parse_arm(a)
+        except SystemExit as e:
+            raise ValueError(str(e))
+    device = "cpu" if any_life_running() or body.get("device") == "cpu" else ""
+    args = [sys.executable, "-m", "vegalife.experiment", "--from", str(src), "--name", name, "--months", str(months)]
+    for a in arms:
+        args += ["--arm", a]
+    if device:
+        args += ["--device", device]
+    (RUNS / f"{name}-running.json").write_text(json.dumps({"name": name, "from": src.name, "months": months,
+                                                            "arms": arms, "device": device or "cuda",
+                                                            "started": time.time()}), encoding="utf-8")
+    spawn_detached(args, RUNS / f"{name}-experiment.log", False, dict(os.environ))
+    return {"ok": True, "name": name, "device": device or "cuda"}
+
+
+def experiments() -> list:
+    RUNS.mkdir(exist_ok=True)
+    out = []
+    for f in sorted(RUNS.glob("*-running.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        x = json.loads(f.read_text(encoding="utf-8"))
+        if (RUNS / f"{x['name']}-report.json").exists():
+            f.unlink(missing_ok=True)
+            continue
+        log = RUNS / f"{x['name']}-experiment.log"
+        tail = log.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-1:] if log.exists() else []
+        out.append(x | {"running": True, "last": tail[0] if tail else "starting"})
+    reps = sorted(RUNS.glob("*-report.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:20]
+    return out + [json.loads(p.read_text(encoding="utf-8")) for p in reps]
+
+
+POP = RUNS / "_population"
+
+
+def start_population(body: dict) -> dict:
+    n = max(20, min(2000, int(body.get("n", 200))))
+    POP.mkdir(parents=True, exist_ok=True)
+    if (POP / "running").exists() and time.time() - (POP / "running").stat().st_mtime < 3600:
+        raise ValueError("a population check is already running")
+    (POP / "running").write_text(str(n), encoding="utf-8")
+    spawn_detached([sys.executable, str(ROOT / "tools" / "population.py"), str(n)], POP / "population.log", False,
+                   dict(os.environ))
+    return {"ok": True, "lives": n}
+
+
+def population() -> dict:
+    rep = json.loads((POP / "report.json").read_text(encoding="utf-8")) if (POP / "report.json").exists() else None
+    return {"report": rep, "running": (POP / "running").exists()}
+
+
 # ---------------------------------------------------------------------------- talking to him (vegalife/chat.py)
 def chat_worker_alive(d: Path) -> bool:
     try:
@@ -320,9 +394,30 @@ class Handler(BaseHTTPRequestHandler):
                                            "months by lives started with this version."})
                 return self.send(200, f.read_bytes())
             if u.path == "/api/experiments":
-                RUNS.mkdir(exist_ok=True)
-                reps = sorted(RUNS.glob("*-report.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:20]
-                return self.send(200, [json.loads(p.read_text(encoding="utf-8")) for p in reps])
+                return self.send(200, experiments())
+            if u.path == "/api/population":
+                return self.send(200, population())
+            if u.path == "/life":
+                return self.send(200, (ROOT / "ui" / "life.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/api/timeline":
+                d = run_dir(q.get("run", ""))
+                return self.send(200, {"rows": story.timeline(d), "lanes": story.LANES, "labels": story.LANE_LABEL})
+            if u.path in ("/api/places", "/api/story"):
+                d = run_dir(q.get("run", ""))
+                L = json.loads((d / "live.json").read_text(encoding="utf-8")) if (d / "live.json").exists() else {}
+                if u.path == "/api/places":
+                    cfg = json.loads((d / "config.json").read_text(encoding="utf-8-sig"))
+                    return self.send(200, story.places(L, int(cfg.get("seed", 1))))
+                md = story.story_markdown(d).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                if q.get("download"):
+                    self.send_header("Content-Disposition", f'attachment; filename="{d.name}-life-story.md"')
+                self.send_header("Content-Length", str(len(md)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(md)
+                return
             if u.path == "/fx.js":
                 return self.send(200, (ROOT / "ui" / "fx.js").read_bytes(), "text/javascript; charset=utf-8")
             if u.path == "/theme.css":
@@ -398,6 +493,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             if u.path == "/api/preview":                    # before he exists: no run yet
                 return self.send(200, preview(body))
+            if u.path == "/api/experiment":
+                return self.send(200, start_experiment(body))
+            if u.path == "/api/population":
+                return self.send(200, start_population(body))
             d = run_dir(body.get("run", ""))
             if u.path == "/api/start":
                 if d.exists():
