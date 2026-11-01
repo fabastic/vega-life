@@ -1,7 +1,7 @@
 # Round 2: what was built, what is left, what could come next
 
 Status at the end of round 2 (2026-10-31):
-- **Tests:** 149 in total. The full run found 2 failures:
+- **Tests:** 154 in total after the follow-up work (see below). In round 2 itself, 149. The full run found 2 failures:
   - Neuroticism no longer fell with age, because lasting event effects piled up to their cap. They now fade, with a half-life of about 5 years.
   - A degree test assumed no apprenticeship.
 
@@ -102,13 +102,82 @@ Status at the end of round 2 (2026-10-31):
 - **Experiments on a real life.** The fork lab has only been run in tests, on a tiny life of half a year.
 
 ### Known imperfections
-- Money stress in the 20s is high: a mean of 0.48, and 55% of months above 0.5. That looks too high next to surveys of young adults (still to be checked against a sourced figure). Starting wages are probably too low against the cost of living.
-- Dementia is about 11% of deaths, about twice the CDC share. It may be named too often when it is only one of several conditions.
-- Short-sightedness has only a region term. It doesn't yet follow time outdoors, even though the weekday budget now tracks that (outdoor time protects: Rose 2008).
-- Emigration runs slightly high against the UN stock figure, though a lifetime rate should be higher than a stock.
+- *(Fixed after round 2, below.)* Money stress in the 20s is high: a mean of 0.48, and 55% of months above 0.5. That looks too high next to surveys of young adults (still to be checked against a sourced figure). Starting wages are probably too low against the cost of living.
+- *(Fixed after round 2.)* Dementia is about 11% of deaths, about twice the CDC share. It may be named too often when it is only one of several conditions.
+- *(Fixed after round 2.)* Short-sightedness has only a region term. It doesn't yet follow time outdoors, even though the weekday budget now tracks that (outdoor time protects: Rose 2008).
+- *(Fixed after round 2.)* Emigration runs slightly high against the UN stock figure, though a lifetime rate should be higher than a stock.
 - Poverty passing down generations is only partial (above).
-- The experiments UI only reads results. There is no "what if" button yet.
-- The map is a network map, not a map of the world with coordinates, places and travel.
+- *(Fixed after round 2.)* The experiments UI only reads results. There is no "what if" button yet.
+- *(Fixed after round 2.)* The map is a network map, not a map of the world with coordinates, places and travel.
+
+---
+
+## After round 2: the numbers and the tools (2026-10-31)
+
+### Numbers checked against real rates
+`tools/population.py` lives many lives with no network and grades 16 rates against published figures, each with its
+source. The Lab tab can run it and shows the last report. What it found, and what changed:
+
+| Rate | Before | After | Target and source |
+|---|---|---|---|
+| life expectancy | 76.5 | 77.409 | 76.0–80.0 (years); US period life expectancy about 78 (CDC NCHS 2023) |
+| good mood months | 0.67 | 0.738 | 0.7–0.78 (share of adult months); about 74% report mostly positive days (Gallup) |
+| ever married | 0.56 | 0.771 | 0.72–0.88 (share of lives reaching 45); about 80% have married by 45 (Pew from Census, 2014; Census 2025) |
+| ever affair | 0.15 | 0.124 | 0.12–0.22 (share of partnered lives); 20% of married men, 13% of women (GSS) |
+| separated from partner | 0.45 | 0.497 | 0.35–0.55 (share of partnered lives); 40-45% of first marriages end, cohabiting unions more often (CDC NSFG) |
+| emigrated | 0.055 | 0.04 | 0.02–0.05 (share of lives); about 3.6% of people live outside their birth country (UN DESA 2024) |
+| dyslexia | 0.05 | 0.055 | 0.05–0.1 (share of lives); 5-10% depending on the cut-off (Snowling 2013) |
+| short sighted by 40 | 0.52 | 0.405 | 0.25–0.45 (share of lives reaching 40); about 30% worldwide in 2020, rising (Holden 2016) |
+| frail 65plus | (new measure) | 0.081 | 0.07–0.15 (share of months aged 65+); 10.7% of community-dwelling over-65s are frail (Collard et al. 2012, 21 studies) |
+| care home 65plus | 0.012 | 0.045 | 0.02–0.06 (share of months aged 65+); about 1.2M in US nursing homes plus about 0.8M in assisted living, of 58M over-65s (CDC NSLTCP) |
+| money stress 20s | 0.72 | 0.327 | 0.22–0.42 (share of months aged 20-29 with stress > 0.5); Fed SHED 2023: 28% of all adults not doing at least okay, 33-52% without a degree; the young are among the worst off |
+| money stress 60s | 0.16 | 0.17 | 0.08–0.25 (share of months aged 60-69 with stress > 0.5); older adults fare better than the 28% average (Fed SHED 2023) |
+| death cancer | 0.31 | 0.235 | 0.17–0.24 (share of deaths); about 21% (CDC 2022) |
+| death heart | 0.26 | 0.228 | 0.18–0.25 (share of deaths); 21-23%, heart attacks included (CDC 2019-2022) |
+| death dementia | 0.13 | 0.085 | 0.04–0.09 (share of deaths); Alzheimer's plus other dementia about 6% as underlying cause (CDC) |
+| death stroke | 0.06 | 0.072 | 0.04–0.08 (share of deaths); about 5% (CDC 2022) |
+
+All 16 rates are now inside their ranges (400 lives). Childlessness is about 14–16%, with 1.6 children on average (US: 15–20% and about 1.6). Lifetime depression is about 30%.
+
+The fixes:
+- **Young adults' money.**
+  - Before, everyone paid full rent from 18, and having little savings alone pushed stress up.
+  - Now he lives with his parents until a drawn age, which is later in strict or expensive places (about a third of US 18–34s live with their parents, Census CPS 2023). Studying gets support, and having little savings counts only when the money is also running out.
+- **Couples.**
+  - Before, pooling gave him all of his partner's pay plus cheaper costs.
+  - Now he gets half of the two pays and pays about 0.7 of a single person's costs (OECD square-root scale).
+  - Partnering was also too slow (77% partnered by 45). Meeting someone and marrying after moving in are both faster.
+- **Causes of death.**
+  - Dementia and heart disease are now named less often when they are only present. Cancer and heart wear weigh less.
+  - Accidents, falls, sepsis and high blood pressure are added as causes.
+  - Dementia fell from 13% to about 8.5% of deaths, and cancer from 31% to about 23.5%.
+- **Short-sightedness.** Time outdoors now protects (Rose et al. 2008), and the base rate is lower.
+- **Personality.** Lasting change from events fades back with a half-life of about 5 years and is smaller. Before, it piled up to its cap, so neuroticism no longer fell with age.
+- **Smaller fixes:**
+  - conception rate with a partner ×0.7
+  - depression base ×0.75 (more partnered years had raised both)
+  - mood reference point
+  - affair rate ×0.55
+  - emigration rate ×0.47
+  - dyslexia base raised slightly
+  - frailty base raised slightly
+
+### Interface and tooling built
+- **`/life`, the life story page** (`story.py`, `ui/life.html`):
+  - **Timeline:** every happening in eight lanes, coloured by feeling, sized by intensity, with brush zoom. Lives started now write `timeline.jsonl`; older lives get lanes guessed from their events' words.
+  - **Family tree:** coloured by each bond's trust and conflict, dashed for people who died or left.
+  - **World map:** our own coarse outlines, with real city coordinates for where he was born, where he lives and where his people are, and an arc for emigration.
+  - **Weekday:** hours at every birthday, recorded by `surroundings.py`.
+  - **Life story:** chapters by life stage, the most felt events of each, his inner voice and dreams, and the people closest to him. It uses she/her for her lives, and downloads as Markdown.
+- **What-if from the UI:** the Lab tab forks the open life and runs one changed arm (a factor, an ablation, a removed person, a state value, or a free-form arm) next to a control. It uses the CPU whenever any life is running.
+- **Population check from the UI:** a button that runs `tools/population.py` and a table of the last report.
+
+### Still open
+- **Life expectancy:** about 77.4, against about 78 in the US.
+- **Map placement:** cities are placed by the seed within his region. Moves inside a country aren't modelled.
+- **Dyslexia and frailty:** both sit near the bottom of their ranges.
+- **Story voice:** the life story uses the simulation's own event lines, so it is in the narrator's voice, not his. A version written by his own network is the next step, once the network is big enough to write.
+- **Pronouns in the simulation:** many simulation lines still say "he" or "his" in a woman's life. The story page uses she/her, but the lines it quotes were written for a man.
 
 ---
 
