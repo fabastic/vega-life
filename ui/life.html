@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vega Life Story</title>
+<script>try{const t=localStorage.getItem('vega-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/theme.css">
+<script src="/fx.js" defer></script>
+<style>
+body{font-size:13px}
+main{max-width:1280px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.wide{grid-column:1/-1}
+@media (max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+#tlWrap{position:relative;height:330px}
+#tl{width:100%;height:100%;display:block;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:var(--panel-solid);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-size:12px;max-width:320px;display:none;z-index:3}
+svg text{font-family:var(--sans)}
+#map,#tree{width:100%;display:block}
+.land{fill:color-mix(in srgb,var(--acc) 10%,var(--bg2));stroke:var(--line2);stroke-width:.25}
+.legend span{display:inline-flex;align-items:center;gap:6px;margin-right:12px;font-size:12px;color:var(--muted)}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+#days .row{display:flex;align-items:center;gap:8px;margin:3px 0}#days .row b{width:34px;text-align:right;font:500 11px var(--mono);color:var(--muted)}
+#days .bar{flex:1;display:flex;height:14px;border-radius:3px;overflow:hidden;background:var(--bar)}
+#days .bar i{display:block;height:100%}
+#story{max-height:620px;overflow:auto;line-height:1.6}#story h1{font-size:18px;margin:0 0 6px}#story h2{font:600 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--acc);margin:16px 0 4px}
+#story p{margin:4px 0}#story blockquote{margin:6px 0;padding:4px 10px;border-left:3px solid var(--acc2);color:var(--ink)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+.lanepick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.lanepick label{font-size:12px;color:var(--muted);display:inline-flex;gap:4px;align-items:center}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/" title="Vega Life"><span><b>VEGA</b><small>life story</small></span></a>
+  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button id="toBrain">Life map</button><button id="toCortex">Network</button><button class="on">Story</button></nav>
+  <select id="run" title="Which life"></select>
+  <span id="stats" class="muted mono" style="font-size:11.5px"></span>
+  <span class="spacer"></span>
+  <button class="icon" id="theme" title="Light or dark">◐</button>
+</header>
+<main>
+  <section class="card wide"><h2>His life, lane by lane</h2>
+    <div class="lanepick" id="lanes"></div>
+    <div id="tlWrap"><canvas id="tl"></canvas><div class="tip" id="tip"></div></div>
+    <div class="legend" style="margin-top:6px"><span><i style="background:var(--good)"></i>felt good</span><span><i style="background:var(--bad)"></i>felt bad</span><span><i style="background:var(--muted)"></i>no feeling recorded (older lives)</span>
+      <span>Drag across to zoom into an age range; double-click to see the whole life. Dot size is how strongly it was felt.</span></div>
+  </section>
+  <section class="card"><h2>His family, coloured by the bond</h2><div id="treeBox"></div>
+    <div class="legend"><span><i style="background:var(--good)"></i>trusting</span><span><i style="background:var(--warn)"></i>mixed</span><span><i style="background:var(--bad)"></i>hurt or in conflict</span><span><i style="background:transparent;border:1px dashed var(--muted)"></i>died or gone</span></div>
+  </section>
+  <section class="card"><h2>Where his life happened</h2><div id="mapBox"></div><div id="mapText" class="muted" style="margin-top:6px"></div></section>
+  <section class="card"><h2>A weekday, year by year</h2><div class="legend" id="dayLegend"></div><div id="days"></div>
+    <div class="legend" style="margin-top:6px"><span>Recorded at each birthday from 3 (lives started with round 2 code). Hours of a 24-hour weekday; "other" is everything else: meals, chores, getting ready.</span></div></section>
+  <section class="card"><h2>His life story</h2>
+    <div class="actions" style="margin-bottom:8px;display:flex;gap:8px"><a class="btn" id="dl" href="#">Download as Markdown</a></div>
+    <div id="story"></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const params=new URLSearchParams(location.search);
+async function api(p){const r=await fetch(p);if(!r.ok)throw new Error((await r.json()).error||r.status);return r.json()}
+const RUN=()=>$('run').value;
+let TL=null,view=[0,100],brush=null,hidden=new Set(),pts=[];
+
+async function runs(){const rs=await api('/api/runs');const want=params.get('run');
+  $('run').innerHTML=rs.map(r=>`<option value="${esc(r.name)}" ${r.name===want?'selected':''}>${esc(r.name)}</option>`).join('');load()}
+async function load(){const run=RUN();if(!run)return;history.replaceState(null,'','?run='+encodeURIComponent(run));
+  $('dl').href='/api/story?download=1&run='+encodeURIComponent(run);
+  const [t,live,pl,st]=await Promise.all([api('/api/timeline?run='+encodeURIComponent(run)).catch(()=>null),
+    api('/api/live?run='+encodeURIComponent(run)).catch(()=>({})),api('/api/places?run='+encodeURIComponent(run)).catch(()=>null),
+    fetch('/api/story?run='+encodeURIComponent(run)).then(r=>r.text()).catch(()=>'')]);
+  TL=t;const maxA=Math.max(1,live.age_years||0,...(t?t.rows.map(r=>r.age):[1]));view=[0,Math.ceil(maxA)];
+  $('stats').textContent=t?`${t.rows.length} happenings · ${(live.age_years||0).toFixed(1)} years`:'';
+  laneUI();drawTL();tree(live);map(pl);days(live);storyView(st)}
+
+// ---------------------------------------------------------------- timeline
+function laneUI(){if(!TL)return;$('lanes').innerHTML=TL.lanes.map(l=>`<label><input type="checkbox" data-l="${l}" ${hidden.has(l)?'':'checked'}>${esc(TL.labels[l])}</label>`).join('');
+  $('lanes').querySelectorAll('input').forEach(c=>c.onchange=()=>{c.checked?hidden.delete(c.dataset.l):hidden.add(c.dataset.l);drawTL()})}
+function drawTL(){const cv=$('tl'),r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;cv.width=r.width*dpr;cv.height=r.height*dpr;
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,r.width,r.height);pts=[];
+  if(!TL||!TL.rows.length){g.fillStyle=css('--muted');g.font='13px sans-serif';g.fillText('No happenings recorded for this life yet.',16,30);return}
+  const lanes=TL.lanes.filter(l=>!hidden.has(l)),L0=110,W=r.width-L0-12,H=r.height-24,lh=H/Math.max(1,lanes.length);
+  const x=a=>L0+(a-view[0])/(view[1]-view[0])*W;
+  g.font='11px '+css('--mono');
+  lanes.forEach((l,i)=>{const y=i*lh;g.fillStyle=i%2?'transparent':css('--bar');g.fillRect(L0,y,W,lh);g.fillStyle=css('--muted');g.fillText(TL.labels[l],6,y+lh/2+4)});
+  const span=view[1]-view[0],step=span>60?10:span>20?5:span>8?1:0.5;g.fillStyle=css('--faint');g.strokeStyle=css('--line');
+  for(let a=Math.ceil(view[0]/step)*step;a<=view[1];a+=step){const xx=x(a);g.beginPath();g.moveTo(xx,0);g.lineTo(xx,H);g.stroke();g.fillText(step<1?a.toFixed(1):String(a),xx-6,H+15)}
+  const good=css('--good'),bad=css('--bad'),mid=css('--muted');
+  for(const row of TL.rows){if(row.age<view[0]||row.age>view[1])continue;const i=lanes.indexOf(row.lane);if(i<0)continue;
+    const v=row.v,rad=v==null?2.2:1.6+4*Math.abs(v)*(0.5+(row.a||0.4));
+    const jitter=((row.text.length*37+Math.round(row.age*100))%100)/100;
+    const px=x(row.age),py=i*lh+lh*(0.2+0.6*jitter);
+    g.globalAlpha=0.75;g.fillStyle=v==null?mid:v>0.05?good:v<-0.05?bad:mid;g.beginPath();g.arc(px,py,rad,0,7);g.fill();pts.push({px,py,row})}
+  g.globalAlpha=1;
+  if(brush){g.fillStyle=css('--acc');g.globalAlpha=.15;g.fillRect(Math.min(brush[0],brush[1]),0,Math.abs(brush[1]-brush[0]),H);g.globalAlpha=1}}
+const cvT=$('tl');
+cvT.onmousemove=e=>{const r=cvT.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  if(brush){brush[1]=mx;drawTL();return}
+  let best=null,bd=144;for(const p of pts){const d=(p.px-mx)**2+(p.py-my)**2;if(d<bd){bd=d;best=p}}
+  const t=$('tip');if(!best){t.style.display='none';return}
+  t.style.display='block';t.style.left=Math.min(r.width-330,mx+12)+'px';t.style.top=(my+12)+'px';
+  t.innerHTML=`<b>${best.row.age.toFixed(1)} years</b> · ${esc(TL.labels[best.row.lane])}<br>${esc(best.row.text)}`};
+cvT.onmouseleave=()=>{$('tip').style.display='none'};
+cvT.onmousedown=e=>{const r=cvT.getBoundingClientRect();brush=[e.clientX-r.left,e.clientX-r.left]};
+cvT.onmouseup=()=>{if(!brush)return;const r=cvT.getBoundingClientRect(),L0=110,W=r.width-L0-12;
+  const a=Math.min(...brush),b=Math.max(...brush);brush=null;
+  if(b-a>8){const toAge=px=>view[0]+(px-L0)/W*(view[1]-view[0]);view=[Math.max(0,toAge(a)),toAge(b)]}drawTL()};
+cvT.ondblclick=()=>{const m=Math.max(1,...(TL?TL.rows.map(r=>r.age):[1]));view=[0,Math.ceil(m)];drawTL()};
+addEventListener('resize',drawTL);
+
+// ---------------------------------------------------------------- family tree
+const GEN={grandparent:-2,mother:-1,father:-1,stepparent:-1,aunt:-1,uncle:-1,sibling:0,cousin:0,partner:0,ex_partner:0,pet:0,child:1,grandchild:2};
+function bondColour(b){if(!b)return css('--muted');const t=b.trust-0.6*b.conflict;return t>0.55?css('--good'):t>0.3?css('--warn'):css('--bad')}
+function tree(L){const ppl=((L.family||{}).people||[]),bonds={};for(const b of (L.bonds||[]))bonds[b.name]=b;
+  if(!ppl.length){$('treeBox').innerHTML='<p class="empty">No family recorded yet.</p>';return}
+  const rows={};for(const p of ppl){const g=GEN[p.relation]??0;(rows[g]=rows[g]||[]).push(p)}
+  (rows[0]=rows[0]||[]).splice(Math.floor(rows[0].length/2),0,{name:'Him',relation:'self',alive:L.alive!==false,self:true});
+  const gens=Object.keys(rows).map(Number).sort((a,b)=>a-b),W=640,rowH=86,H=gens.length*rowH+20,pos={};
+  let s='';gens.forEach((g,gi)=>{const rs=rows[g],n=rs.length;rs.forEach((p,i)=>{const x=(i+.5)*W/n,y=30+gi*rowH;pos[p.name+'|'+p.relation]={x,y,p}})});
+  const me=Object.values(pos).find(o=>o.p.self);
+  for(const o of Object.values(pos)){if(o.p.self)continue;const g=GEN[o.p.relation]??0;
+    if([-1,1,0].includes(g)&&['mother','father','child','partner','ex_partner','sibling','stepparent'].includes(o.p.relation))
+      s+=`<line x1="${me.x}" y1="${me.y}" x2="${o.x}" y2="${o.y}" stroke="${css('--line2')}" stroke-width="1"/>`;
+    if(o.p.relation==='grandparent'){const par=Object.values(pos).filter(q=>['mother','father'].includes(q.p.relation));
+      const near=par.sort((a,b)=>Math.abs(a.x-o.x)-Math.abs(b.x-o.x))[0];if(near)s+=`<line x1="${near.x}" y1="${near.y}" x2="${o.x}" y2="${o.y}" stroke="${css('--line2')}"/>`}
+    if(o.p.relation==='grandchild'){const kid=Object.values(pos).filter(q=>q.p.relation==='child').sort((a,b)=>Math.abs(a.x-o.x)-Math.abs(b.x-o.x))[0];
+      if(kid)s+=`<line x1="${kid.x}" y1="${kid.y}" x2="${o.x}" y2="${o.y}" stroke="${css('--line2')}"/>`}}
+  for(const o of Object.values(pos)){const p=o.p,b=bonds[p.name],c=p.self?css('--acc'):bondColour(b),gone=p.alive===false||p.gone;
+    const title=p.self?'him':`${p.name} (${p.relation.replace('_',' ')})${b?` · trust ${b.trust}, conflict ${b.conflict}, ${b.pattern}`:''}${p.alive===false?` · died when he was ${p.died_at_his_age}`:''}`;
+    s+=`<g><title>${esc(title)}</title><rect x="${o.x-52}" y="${o.y-17}" width="104" height="34" rx="6" fill="${css('--bg2')}" stroke="${c}" stroke-width="${p.self?2.5:1.6}" ${gone?'stroke-dasharray="4 3" opacity=".6"':''}/>
+      <text x="${o.x}" y="${o.y-2}" text-anchor="middle" font-size="12" fill="${css('--ink')}">${esc(p.name.slice(0,14))}</text>
+      <text x="${o.x}" y="${o.y+11}" text-anchor="middle" font-size="9.5" fill="${css('--muted')}">${esc(p.relation.replace('_',' '))}</text></g>`}
+  $('treeBox').innerHTML=`<svg id="tree" viewBox="0 0 ${W} ${H}">${s}</svg>`}
+
+// ---------------------------------------------------------------- the world map (our own coarse outlines)
+const LAND=[[[-168,65],[-140,70],[-95,72],[-80,63],[-60,55],[-53,47],[-70,42],[-76,35],[-81,25],[-97,26],[-97,18],[-87,15],[-78,8],[-85,10],[-105,20],[-117,32],[-125,40],[-124,48],[-135,58],[-150,60],[-165,60]],
+ [[-50,60],[-20,70],[-20,82],[-60,82],[-70,76],[-55,68]],
+ [[-78,8],[-60,10],[-50,0],[-35,-6],[-39,-15],[-48,-25],[-58,-35],[-65,-42],[-68,-55],[-73,-50],[-72,-35],[-70,-18],[-80,-5],[-80,2]],
+ [[-10,36],[-9,43],[-2,44],[-5,48],[2,51],[8,54],[10,57],[5,62],[15,69],[28,71],[40,67],[45,60],[40,48],[30,45],[28,41],[22,37],[15,38],[12,44],[5,43],[0,38]],
+ [[-6,50],[2,51],[0,54],[-3,58],[-6,57],[-5,54]],
+ [[-17,21],[-10,30],[-5,36],[10,37],[20,32],[32,31],[35,28],[43,12],[51,12],[40,-2],[40,-15],[33,-25],[20,-35],[15,-28],[12,-12],[9,4],[-8,4],[-17,14]],
+ [[35,28],[43,12],[51,12],[57,22],[57,25],[48,30],[35,32]],
+ [[28,41],[36,36],[35,32],[48,30],[57,25],[60,22],[67,25],[73,20],[77,8],[80,15],[88,22],[92,22],[98,16],[100,8],[105,10],[109,18],[108,22],[117,24],[122,31],[120,38],[125,40],[130,43],[142,47],[140,55],[160,60],[180,66],[180,72],[140,73],[110,77],[80,73],[60,70],[45,67],[40,60],[45,48],[50,45],[45,40],[40,42]],
+ [[130,31],[135,34],[141,36],[142,43],[140,41],[135,35]],[[109,1],[118,7],[119,0],[116,-4],[110,-3]],[[95,5],[106,-6],[102,-4]],[[120,18],[125,8],[122,10]],
+ [[114,-22],[122,-18],[130,-12],[137,-12],[142,-11],[146,-19],[153,-26],[150,-37],[141,-38],[135,-34],[129,-31],[115,-34]],
+ [[172,-34],[178,-38],[174,-41],[167,-46],[172,-42]],[[44,-12],[50,-15],[47,-25],[43,-22]]];
+const P=(lon,lat)=>[lon+180,90-lat];
+function map(pl){if(!pl){$('mapBox').innerHTML='<p class="empty">No places yet.</p>';$('mapText').textContent='';return}
+  let s=`<rect x="0" y="0" width="360" height="160" fill="${css('--bg')}"/>`;
+  for(const poly of LAND)s+=`<polygon class="land" points="${poly.map(([a,b])=>P(a,b).join(',')).join(' ')}"/>`;
+  for(let lat=-60;lat<=80;lat+=30)s+=`<line x1="0" x2="360" y1="${90-lat}" y2="${90-lat}" stroke="${css('--line')}" stroke-width=".2"/>`;
+  for(const m of pl.moves){const [x1,y1]=P(m.from.lon,m.from.lat),[x2,y2]=P(m.to.lon,m.to.lat),mx=(x1+x2)/2,my=Math.min(y1,y2)-18;
+    s+=`<path d="M${x1},${y1} Q${mx},${my} ${x2},${y2}" fill="none" stroke="${css('--acc2')}" stroke-width=".8" stroke-dasharray="2 1.5"/>`}
+  const spots={};for(const p of pl.people){const k=p.city;(spots[k]=spots[k]||{lat:p.lat,lon:p.lon,city:p.city,names:[]}).names.push(p.name+(p.alive===false?' †':''))}
+  for(const sp of Object.values(spots)){const [x,y]=P(sp.lon,sp.lat);s+=`<g><title>${esc(sp.city)}: ${esc(sp.names.join(', '))}</title><circle cx="${x+1.6}" cy="${y+1.6}" r="1.6" fill="${css('--warn')}"/></g>`}
+  const [bx,by]=P(pl.born.lon,pl.born.lat),[nx,ny]=P(pl.now.lon,pl.now.lat);
+  s+=`<g><title>born in ${esc(pl.born.city)}</title><circle cx="${bx}" cy="${by}" r="2.4" fill="none" stroke="${css('--acc')}" stroke-width=".8"/></g>`;
+  s+=`<g><title>lives in ${esc(pl.now.city)}</title><circle cx="${nx}" cy="${ny}" r="1.8" fill="${css('--acc')}"/></g>`;
+  s+=`<text x="${nx+3}" y="${ny-2}" font-size="5" fill="${css('--ink')}">${esc(pl.now.city)}</text>`;
+  if(pl.now.city!==pl.born.city)s+=`<text x="${bx+3}" y="${by+5}" font-size="4.5" fill="${css('--muted')}">${esc(pl.born.city)}</text>`;
+  $('mapBox').innerHTML=`<svg id="map" viewBox="0 10 360 150">${s}</svg>`;
+  const mv=pl.moves[0];
+  $('mapText').innerHTML=`Born in <b>${esc(pl.born.city)}</b>, ${esc(pl.born.region)}.`+(mv?` Emigrated to <b>${esc(pl.now.city)}</b>, ${esc(pl.now.region)}, at ${esc(mv.at)}; his parents' generation stayed behind.`:' Lives there still.')+(pl.care_home?' Now in a care home.':'')+
+    ' <span class="muted">Cities are placed by the seed within his region; the outline is our own coarse drawing.</span>'}
+
+// ---------------------------------------------------------------- time use
+const DAYK=[['sleep','--acc2'],['school','--k-situation'],['work','--warn'],['commute','--bad'],['screens','--k-memory'],['outdoors','--good'],['friends','--k-person'],['other','--faint']];
+function days(L){const z=L.surroundings||{};let d=z.days||{};const now=z.day;
+  $('dayLegend').innerHTML=DAYK.map(([k,c])=>`<span><i style="background:var(${c})"></i>${k}</span>`).join('');
+  let ages=Object.keys(d).map(Number).sort((a,b)=>a-b);
+  if(ages.length>24){const st=Math.ceil(ages.length/24);ages=ages.filter((a,i)=>i%st===0)}
+  const rows=ages.map(a=>[a+'y',d[a]]);if(now&&Object.keys(now).length)rows.push(['now',now]);
+  if(!rows.length){$('days').innerHTML='<p class="empty">No weekday recorded yet (lives started with round 2 code record one each birthday).</p>';return}
+  $('days').innerHTML=rows.map(([a,day])=>{let used=0;const segs=DAYK.slice(0,-1).map(([k,c])=>{const h=Math.max(0,+day[k]||0);used+=h;return [k,c,h]});
+    segs.push(['other','--faint',Math.max(0,24-used)]);
+    return `<div class="row"><b>${esc(a)}</b><div class="bar">${segs.map(([k,c,h])=>h>0?`<i title="${k} ${h.toFixed(1)}h" style="width:${h/24*100}%;background:var(${c})"></i>`:'').join('')}</div></div>`}).join('')}
+
+// ---------------------------------------------------------------- the story
+function md(t){return t.split('\n').map(l=>{const e=esc(l).replace(/\*([^*]+)\*/g,'<i>$1</i>');
+  if(l.startsWith('# '))return `<h1>${e.slice(2)}</h1>`;if(l.startsWith('## '))return `<h2>${e.slice(3)}</h2>`;
+  if(l.startsWith('&gt; ')||l.startsWith('> '))return `<blockquote>${e.replace(/^&gt; /,'')}</blockquote>`;
+  if(l.startsWith('- '))return `<p>• ${e.slice(2)}</p>`;return l.trim()?`<p>${e}</p>`:''}).join('')}
+function storyView(t){$('story').innerHTML=t?md(t):'<p class="empty">No story yet.</p>'}
+
+$('run').onchange=load;
+$('toLives').onclick=()=>location.href='/';$('toLive').onclick=()=>location.href='/?run='+encodeURIComponent(RUN());
+$('toBrain').onclick=()=>location.href='/brain?run='+encodeURIComponent(RUN());$('toCortex').onclick=()=>location.href='/cortex?run='+encodeURIComponent(RUN());
+$('theme').onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('vega-theme',t)}catch(e){}load()};
+runs();
+</script>
+</body>
+</html>
