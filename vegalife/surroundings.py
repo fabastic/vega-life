@@ -58,6 +58,7 @@ class Surroundings:
         self.neighbours = [{"role": role, "name": r.choice(NAMES), "what": what, "met": round(r.uniform(4, 12), 1)}
                            for role, what, _, _ in r.sample(ROLES, 2 + int(F["community_ties"] > 0.5))]
         self.day: Dict[str, float] = {}
+        self.days: Dict[int, Dict[str, float]] = {}     # his weekday at each birthday, for the time-use view
         self.recent: List[list] = []
 
     def opportunity(self, F: FactorSet) -> float:
@@ -77,6 +78,7 @@ class Surroundings:
         return {"opportunity_dose": round(self.opportunity_dose, 2), "green_dose": round(self.green_dose, 2),
                 "urban_dose": round(self.urban_dose, 2), "iq_lost": round(self.iq_lost, 1),
                 "income_shift": round(self.income_shift(), 3), "day": self.day, "neighbours": self.neighbours,
+                "days": getattr(self, "days", {}),
                 "recent": self.recent[-6:]}
 
     def step(self, p, F: FactorSet) -> List[dict]:
@@ -117,6 +119,10 @@ class Surroundings:
         self.day = {"sleep": round(6 + 3 * s["sleep"], 1), "school": school, "work": round(work, 1),
                     "commute": round(2 * minutes / 60, 1), "screens": round(screens, 1), "outdoors": round(outdoors, 1),
                     "friends": round(1.5 * s["peer_support"] + 0.5 * s["community_support"], 1)}
+        if p.age % 12 == 0 and y >= 3:
+            if not hasattr(self, "days"):
+                self.days = {}
+            self.days[int(y)] = dict(self.day)
         # --- the adults around him ----------------------------------------------------------------------------------
         if 4 <= y < 25:
             for nb in self.neighbours:
