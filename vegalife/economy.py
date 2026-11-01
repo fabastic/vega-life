@@ -85,6 +85,10 @@ class Economy:
         self.emigrated: Optional[dict] = None
         self.deskilled_until = 0
         self.recent: List[list] = []
+        # Leaving the parental home: about a third of US 18-34s live with parents (Census CPS 2023), later in strict
+        # and poorer places, earlier in the Nordic countries. Until then rent and food are mostly covered.
+        late = 4 * F["cultural_strictness"] + 3 * F["housing_unaffordable"] - 2 * F["ses"]
+        self.leaves_home = round(18 + min(17.0, self.rng.expovariate(1 / 4.0) + max(0.0, late)), 1)
 
     # ------------------------------------------------------------------ what others read
     def title(self) -> str:
@@ -121,7 +125,8 @@ class Economy:
     def to_json(self) -> dict:
         return {"field": self.field, "tier": self.tier, "tier_name": None if self.tier is None else TIERS[self.tier],
                 "title": self.title(), "stress": round(self.stress, 3), "flow": round(self.flow, 4),
-                "cheap_housing": self.cheap_housing, "emigrated": self.emigrated, "recent": self.recent[-6:]}
+                "cheap_housing": self.cheap_housing, "emigrated": self.emigrated, "recent": self.recent[-6:],
+                "leaves_home": getattr(self, "leaves_home", None)}
 
     # ------------------------------------------------------------------ the month
     def step(self, p, F: FactorSet) -> List[dict]:
@@ -143,14 +148,25 @@ class Economy:
         if y >= 18:
             pooled = p.family.pooled(m)
             pt = p.family.partner(m)
-            pay = 0.006 * s["income"] * employed + 0.004 * (pooled and pt is not None and pt.works) + 0.008 * s["pension"] * (y >= 60)
+            pay = 0.006 * s["income"] * employed + 0.008 * s["pension"] * (y >= 60)
+            if pooled:                                     # his half of the household's pay
+                pay = 0.5 * (pay + 0.0045 * (pt is not None and pt.works))
+            at_home = y < getattr(self, "leaves_home", 18) and pt is None and s["housing"] < 0.5 and any(
+                x.relation in ("mother", "father") and x.alive for x in p.family.people)
+            studying = m < getattr(p, "tertiary_until", 0)          # grants, loans and family help while studying
             kids = sum(1 for x in p.family.people if x.relation == "child" and x.alive and m - x.born < 216)
-            housing = (0.003 + 0.004 * F["housing_unaffordable"]) * (0.6 if pooled else 1.0) * (0.5 if self.cheap_housing else 1.0) \
+            housing = (0.003 + 0.004 * F["housing_unaffordable"]) * (0.7 if pooled else 1.0) * (0.5 if self.cheap_housing else 1.0) \
                 * (0.6 if s["housing"] < 0.5 and y < 30 else 1.0) * (0.5 if y >= 65 and s["housing"] > 0.5 else 1.0)
             costs = (0.0012 if y >= 65 else 0.002) + housing + 0.0012 * kids + 0.002 * getattr(p.hardships, "debt_crisis", False) \
                 + 0.0015 * F["parent_care_costs"] * (40 <= y < 65)
+            if pooled:
+                costs = housing + 0.7 * (costs - housing)
+            if at_home:
+                costs = 0.4 * (costs - housing) + 0.15 * housing
+            elif studying:
+                costs *= 0.6
             self.flow = pay - costs
-            target = clip(0.25 - 100 * self.flow + 0.25 * (s["wealth"] < 0.05) - 0.45 * s["wealth"])
+            target = clip(0.2 - 100 * self.flow + 0.15 * (s["wealth"] < 0.05) * (self.flow < 0.001) - 0.45 * s["wealth"])
             self.stress += 0.1 * (target - self.stress)
             s["financial_stress"] = round(self.stress, 4)
             if self.stress > 0.3:
@@ -168,7 +184,7 @@ class Economy:
             here = REGION_NAMES[int(round(F["region"] * (len(REGION_NAMES) - 1)))]
             push = PUSH.get(here, 0.5) * (1 + self.stress + 0.8 * getattr(p.hardships, "displaced", False)
                                           + 0.4 * (not employed)) * (0.5 + s["openness"])
-            if r.random() < 0.00015 * push:
+            if r.random() < 0.00007 * push:
                 self._emigrate(p, F, here, out)
         if self.emigrated is not None:
             e = self.emigrated

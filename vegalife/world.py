@@ -447,9 +447,12 @@ class Person:
             spend = 0.004 + 0.003 * (1 - s["housing"] * 0.5)
             together = self.family.pooled(self.age)           # one household: a second income, shared costs
             pt = self.family.partner(self.age)
-            partner_pay = 0.004 * (pt is not None and together and pt.works)
-            s["wealth"] = clip(s["wealth"] + 0.006 * s["income"] * s["employed"] + partner_pay
-                               - spend * (0.4 if together else 0.5))
+            mine = 0.006 * s["income"] * s["employed"]
+            if together:      # his half of two pays, and ~0.7 of a single person's costs (OECD sqrt scale: couple = 1.41)
+                partner_pay = 0.0045 * (pt is not None and pt.works)
+                s["wealth"] = clip(s["wealth"] + 0.5 * (mine + partner_pay) - 0.35 * spend)
+            else:
+                s["wealth"] = clip(s["wealth"] + mine - 0.5 * spend)
             if y >= 66:
                 s["employed"] = 0.0 if r.random() < 0.05 else s["employed"]
                 s["pension"] = toward(s["pension"], 0.5 * s["wealth"] + 0.3, 0.05)
