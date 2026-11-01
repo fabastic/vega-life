@@ -263,7 +263,7 @@ class Bonds:
         b = self.bonds.get(pt.name)
         conflict = b.conflict if b else 0.1
         moral = p.conscious.moral_sense(p, F)
-        if r.random() < 0.0009 * (0.5 + s["peer_risk"]) * (1.5 - s["agreeableness"]) * (1 + 2 * conflict) \
+        if r.random() < 0.0005 * (0.5 + s["peer_risk"]) * (1.5 - s["agreeableness"]) * (1 + 2 * conflict) \
                 * (1.2 - 0.6 * moral) * (1.3 if F["sex"] >= 0.5 else 0.85):
             self.affair = {"partner": pt.name, "since": m}
             out.append({"text": "starts an affair and lies about where he has been", "valence": -0.4, "arousal": 0.8,
