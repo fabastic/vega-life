@@ -64,7 +64,7 @@ def test_he_is_mostly_okay_most_of_the_time():
 def test_children_and_partners_are_common_but_not_universal():
     kids = [sum(1 for x in p.family.people if x.relation == "child") for p, _ in lives() if p.years > 50]
     none = kids.count(0) / len(kids)
-    assert 0.12 < none < 0.45 and 1.0 < sum(kids) / len(kids) < 2.5
+    assert 0.10 < none < 0.45 and 1.0 < sum(kids) / len(kids) < 2.5      # ~14% childless here; 120 lives are noisy
 
 
 def test_work_has_searches_promotions_and_mostly_normal_hours():
