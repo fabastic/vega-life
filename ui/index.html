@@ -257,7 +257,7 @@ body[data-view="lab"] .simple{display:none!important}
     <div class="legend">He can only speak as well as he has learned to: a toddler babbles, an adult trained for years makes more sense. Talking to him does not change his life. A life that is not running is woken from its last save, which can take a minute.</div></div>
   <div class="card lab" style="margin-top:14px"><h2>His network (the model)</h2>
     <div id="netWrap"><canvas id="netViz"></canvas></div>
-    <div class="actions" style="margin:8px 0"><button id="toCortex" title="His network as regions: activity and learning">Open the network map</button></div>
+    <div class="actions" style="margin:8px 0"><button id="toCortex" title="His network as regions: activity and learning">Open the network map</button> <button id="toStory" title="Timeline, family tree, map, weekday and life story">Open his life story</button></div>
     <div class="stat" id="now"></div>
     <div class="growth" id="growthBar"></div><div class="legend" id="growthNote"></div></div>
   <div class="grid lab" style="margin-top:14px">
@@ -288,13 +288,23 @@ body[data-view="lab"] .simple{display:none!important}
   <div class="grid lab" style="margin-top:14px" id="stateCards"></div>
   <div class="card lab" style="margin-top:14px"><h2>Factors in force · change live</h2><table id="ftable"></table></div>
   <div class="card lab" style="margin-top:14px"><h2>Experiments · fork a life and change one thing</h2><div id="expLive"></div>
-    <div class="legend">Every arm starts from the same saved month, with the same randomness; only the change differs. Run one with
-      <code>python -m vegalife.experiment --from runs/NAME --name ex1 --months 24 --arm poverty:state.wealth=0.02 --arm no_conscience:ablate=conscience</code>
-      (arms run one after another; add <code>--device cpu</code> to leave the GPU free).</div></div>
+    <div class="legend" style="margin-top:10px">What if? Fork this life at its last saved month and change one thing. A control arm runs alongside automatically.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0">
+      <select id="wiKind" title="What to change"><option value="factor">a factor</option><option value="ablate">switch off a part of his mind</option><option value="remove">remove a person</option><option value="state">set part of his state</option><option value="raw">write the arm myself</option></select>
+      <select id="wiFactor"></select><input id="wiValue" type="number" min="0" max="1" step="0.05" value="0.1" style="width:80px" title="New value (0 to 1)">
+      <select id="wiAblate"><option>conscience</option><option>memory</option><option>replay</option></select>
+      <input id="wiText" placeholder="mother" style="width:220px">
+      <label class="muted" style="font-size:12px">for <input id="wiMonths" type="number" min="1" max="240" value="24" style="width:64px"> months</label>
+      <button id="wiGo" class="primary">Run what-if</button></div>
+    <div id="wiMsg" class="muted" style="font-size:12px"></div>
+    <div class="legend">Every arm starts from the same saved month, with the same randomness; only the change differs. Arms run one after another, on the CPU whenever another life is running, so the GPU is never shared.</div></div>
+  <div class="card lab" style="margin-top:14px"><h2>Population check · many lives against real rates</h2><div id="popLive"><span class="muted">(no check run yet)</span></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><label class="muted" style="font-size:12px">lives <input id="popN" type="number" min="20" max="2000" value="300" style="width:80px"></label><button id="popGo">Run the check</button><span id="popMsg" class="muted" style="font-size:12px"></span></div>
+    <div class="legend">Lives with no network (choices at random) run on the CPU, then each rate is compared with a published figure and its source. Same as <code>python tools/population.py 300</code>.</div></div>
 </section>
 </main>
 <script>
-const $=id=>document.getElementById(id);const UI_VERSION=19;let CAT=null,RUN=null,timer=null,NET=null;
+const $=id=>document.getElementById(id);const UI_VERSION=20;let CAT=null,RUN=null,timer=null,NET=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const calm=matchMedia('(prefers-reduced-motion: reduce)');
 async function api(p,body){const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
@@ -685,10 +695,34 @@ function innerUpdate(L){const m=L.mind;if(!m)return;let h='';
   h+='<div class="legend">From 6 his thoughts arrive as numbers and his own network puts them into words. Each night the month\'s strongest memories are replayed and learned again, with no new input; the dream is that replay running free. Self-knowledge: how well a linear probe reads his mood and worries from his network with nothing in the prompt.</div>';
   $('innerLive').innerHTML=h}
 async function expUpdate(){try{const xs=await api('/api/experiments');
-  $('expLive').innerHTML=xs.length?xs.map(x=>`<div class="ppl"><span><b>${esc(x.name)}</b> <small>from ${esc(x.from)} · ${x.months} months · arms ${Object.keys(x.arms).map(esc).join(', ')}</small></span><span class="st">${Object.entries(x.vs_control).map(([a,d])=>a==='control'?'':`${esc(a)}: wellbeing ${d.wellbeing>0?'+':''}${d.wellbeing??'?'}`).filter(Boolean).join(' · ')}</span></div>`).join(''):'<p class="muted">No experiments yet.</p>'}catch(e){}}
+  $('expLive').innerHTML=xs.length?xs.map(x=>x.running?`<div class="ppl"><span><b>${esc(x.name)}</b> <small>from ${esc(x.from)} · ${x.months} months · ${esc(x.device)} · arms ${x.arms.map(esc).join(', ')}</small></span><span class="st"><span class="tag">running</span> ${esc(x.last)}</span></div>`
+    :`<div class="ppl"><span><b>${esc(x.name)}</b> <small>from ${esc(x.from)} · ${x.months} months · arms ${Object.keys(x.arms).map(esc).join(', ')}</small></span><span class="st">${Object.entries(x.vs_control).map(([a,d])=>a==='control'?'':`${esc(a)}: wellbeing ${d.wellbeing>0?'+':''}${d.wellbeing??'?'}`).filter(Boolean).join(' · ')}</span></div>`).join(''):'<p class="muted">No experiments yet.</p>'}catch(e){}}
+function wiArm(){const k=$('wiKind').value,t=$('wiText').value.trim();
+  if(k==='factor'){const f=$('wiFactor').value;return `${f}_${String($('wiValue').value).replace('.','p')}:${f}=${$('wiValue').value}`}
+  if(k==='ablate')return `no_${$('wiAblate').value}:ablate=${$('wiAblate').value}`;
+  if(k==='remove')return `without_${t.replace(/\W+/g,'_')}:remove=${t}`;
+  if(k==='state'){const [a,b]=t.split('=');return `${(a||'').trim()}_${String(b||'').trim().replace('.','p')}:state.${(a||'').trim()}=${(b||'').trim()}`}
+  return t}
+function wiShow(){const k=$('wiKind').value;$('wiFactor').style.display=$('wiValue').style.display=k==='factor'?'':'none';
+  $('wiAblate').style.display=k==='ablate'?'':'none';$('wiText').style.display=['remove','state','raw'].includes(k)?'':'none';
+  $('wiText').placeholder={remove:'who, e.g. mother',state:'e.g. wealth=0.02',raw:'name:factor=v,state.x=v,ablate=memory'}[k]||''}
+$('wiKind').onchange=wiShow;
+$('wiGo').onclick=async()=>{if(!RUN){$('wiMsg').textContent='Open a life first.';return}
+  try{const r=await api('/api/experiment',{run:RUN,months:+$('wiMonths').value,arms:[wiArm()]});
+    $('wiMsg').textContent=`Started ${r.name} on the ${r.device==='cpu'?'CPU':'GPU'}. Results appear above when it finishes.`;expUpdate()}
+  catch(e){$('wiMsg').textContent='Could not start: '+e.message}};
+async function popUpdate(){try{const d=await api('/api/population');$('popMsg').textContent=d.running?'running…':'';const r=d.report;if(!r)return;
+  const ok=r.lines.filter(x=>x.ok).length;
+  $('popLive').innerHTML=`<p style="margin:0 0 6px"><b>${ok} of ${r.lines.length}</b> rates inside their target range <small class="muted">· ${r.lives} lives · ${esc(r.when)}</small></p>`+
+    `<table style="width:100%;font-size:12px">${r.lines.map(x=>`<tr title="${esc(x.source)}"><td>${esc(x.name.replace(/_/g,' '))}</td><td class="mono" style="color:var(${x.ok?'--good':'--bad'})">${x.value}</td><td class="muted mono">${x.lo}–${x.hi}</td><td class="muted" style="font-size:11px">${esc(x.unit)}</td></tr>`).join('')}</table>`}catch(e){}}
+$('popGo').onclick=async()=>{try{const r=await api('/api/population',{n:+$('popN').value});$('popMsg').textContent=`running ${r.lives} lives…`}catch(e){$('popMsg').textContent=e.message}};
+setInterval(popUpdate,15000);setTimeout(popUpdate,1200);
+setTimeout(()=>{const fill=()=>{if(!CAT){setTimeout(fill,500);return}
+  const fs=Array.isArray(CAT.factors)?CAT.factors:Object.values(CAT.factors);
+  $('wiFactor').innerHTML=fs.map(f=>`<option value="${esc(f.key||f.name)}">${esc(f.label)}</option>`).join('');wiShow()};fill()},0);
 const TABMAP={life:['familyLive','bondsLive','seasonLive','friendsLive','log','choices','memLive','story','nowLive'],mind:['mindLive','mentalLive','biasLive','innerLive'],
   body:['chemLive','healthLive','hormLive','hardLive'],world:['workLive','econLive','schoolingLive','schoolLive','phoneLive'],talk:['chatLog'],
-  lab:['netViz','cLoss','cRew','heard','babble','items','stateCards','ftable','expLive']};
+  lab:['netViz','cLoss','cRew','heard','babble','items','stateCards','ftable','expLive','popLive']};
 function tabOf(card){for(const [t,ids] of Object.entries(TABMAP))for(const id of ids){if(card.id===id||card.querySelector('#'+id))return t}return card.classList.contains('lab')?'lab':'life'}
 function setTab(t){try{localStorage.setItem('vega-tab',t)}catch(e){}
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
@@ -745,6 +779,7 @@ async function poll(){if(!RUN)return;let L;try{L=await api('/api/live?run='+enco
 }
 init();
 document.getElementById('toCortex').onclick=()=>location.href='/cortex?run='+encodeURIComponent(RUN||'');
+document.getElementById('toStory').onclick=()=>location.href='/life?run='+encodeURIComponent(RUN||'');
 </script>
 </body>
 </html>
