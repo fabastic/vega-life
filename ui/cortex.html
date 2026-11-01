@@ -24,7 +24,7 @@ aside{width:340px;max-width:44%;border-left:1px solid var(--line);background:var
 <body>
 <header class="topbar">
   <a class="brand" href="/" title="Vega Life"><span><b>VEGA</b><small>network map</small></span></a>
-  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button id="toBrain">Life map</button><button class="on">Network</button></nav>
+  <nav class="seg"><button id="toLives">Lives</button><button id="toLive">Live</button><button id="toBrain">Life map</button><button class="on">Network</button><button id="toStory">Story</button></nav>
   <select id="run" title="Which life"></select>
   <span id="stats" class="muted mono" style="font-size:11.5px"></span>
   <span class="spacer"></span>
@@ -92,6 +92,7 @@ cv.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-drag.x,dy=e.cl
 cv.addEventListener('pointerup',e=>{if(drag&&!drag.m)show(pick(e));drag=null});
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(250,Math.min(3000,cam.dist*(e.deltaY>0?1.1:0.9)))},{passive:false});
 $('run').onchange=load;$('toLives').onclick=()=>location.href='/';$('toLive').onclick=()=>location.href='/?run='+encodeURIComponent($('run').value);
+$('toStory').onclick=()=>location.href='/life?run='+encodeURIComponent($('run').value);
 $('toBrain').onclick=()=>location.href='/brain?run='+encodeURIComponent($('run').value);
 $('theme').onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('vega-theme',t)}catch(e){}};
 runs();setInterval(()=>{if($('run').value)load()},15000);requestAnimationFrame(draw);
