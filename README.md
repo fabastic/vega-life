@@ -434,3 +434,21 @@ and that grief is more often prolonged.
 **Experiments**
 `python -m vegalife.experiment` forks a saved life into arms that differ in one thing: a factor, his state, a person
 removed, or a part of him switched off. It lives each arm forward and writes a comparison report.
+
+## After round 2: real-world numbers and tools to look at a life
+
+**Population check** (`tools/population.py`, and the Lab tab): many lives with no network are lived on the CPU,
+then 16 rates are compared with published figures, each with its source: life expectancy, mood, marriage, affairs,
+separation, emigration, dyslexia, myopia, frailty, care homes, money stress by age, and the main causes of death.
+The fixes this drove are listed in `round2.md`.
+
+**Life story page** (`/life`, `story.py`)
+- A timeline of every happening in eight lanes (family, love, friends, school, work and money, body, mind, world),
+  coloured by how it felt, with zoom.
+- A family tree coloured by the health of each bond.
+- A world map with real city coordinates: where he was born, where he lives, where his people are.
+- His weekday at every birthday, as hours.
+- A written life story, chapter by life stage, that can be downloaded as Markdown.
+
+**What-if from the UI**: the Lab tab forks the open life and runs a changed arm next to a control, on the CPU
+whenever another life is using the GPU.
