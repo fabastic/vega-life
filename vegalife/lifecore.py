@@ -8,10 +8,12 @@ live and record a month the same way.
 """
 from __future__ import annotations
 
+import json
 from typing import List, Optional
 
 from . import brainmap as bmod
 from .factors import stage_of
+from .story import lane_of
 
 EVENT_DOMAIN = {"friend": "social", "bullied": "social", "home": "social", "work": "socioeconomic",
                 "move": "socioeconomic", "study": "socioeconomic", "disaster": "socioeconomic", "illness": "biological",
@@ -41,7 +43,12 @@ def world_month(L, attribute: bool = True) -> List[str]:
     for e in events:
         L.say(e)
     L.character.step(p, F)                                        # sleep, mood, and personality forming
+    tl = getattr(L, "timeline_f", None)
     for h in p.happenings:
+        if tl is not None:                                        # the timeline and life story (story.py)
+            tl.write(json.dumps({"age": round(age / 12, 3), "text": h["text"][:160], "key": h["key"],
+                                 "lane": lane_of(h["key"], h["text"]), "v": round(h["valence"], 2),
+                                 "a": round(h.get("arousal", 0.4), 2)}) + "\n")
         shifts = {}
         if h["memorable"]:
             L.present.happened(age, h["text"], h["valence"])     # on his mind now...

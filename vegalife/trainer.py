@@ -212,6 +212,7 @@ class Life:
         self.interventions_seen = 0
         self.started = time.time()
         self.events_f = open(run_dir / "events.jsonl", "a", encoding="utf-8")
+        self.timeline_f = open(run_dir / "timeline.jsonl", "a", encoding="utf-8")   # every happening, by lane (story.py)
         self.brain = BrainMap(run_dir) if sim["brain_map"] else None
         if self.brain is not None and ck is None:
             bmod.backbone(self.brain)
@@ -774,6 +775,7 @@ class Life:
     def checkpoint(self) -> None:
         """Everything needed to carry on from this month, written atomically to resume.pt."""
         self.events_f.flush()
+        self.timeline_f.flush()
         if self.brain is not None:
             self.brain.flush()
         names = {p: n for n, p in self.model.named_parameters()}
@@ -888,6 +890,7 @@ class Life:
             self.brain.close()
         self.live("finished" if not self.p.alive or self.p.age >= max_m else "stopped")
         self.events_f.close()
+        self.timeline_f.close()
 
 
 def main() -> None:
