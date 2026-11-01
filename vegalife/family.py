@@ -334,7 +334,7 @@ class Family:
             out.append(self._lose(p, dad, "divorce", False))
         partner = next((x for x in self.people if x.relation == "partner" and x.alive and not x.gone), None)
         if partner is None and 20 <= y < 60 and not any(x.relation == "partner" and x.seeded is False for x in self.people):
-            if r.random() < 0.008 * (0.3 + F["partner_support"]) * (1.0 if y < 40 else 0.4):
+            if r.random() < 0.018 * (0.4 + F["partner_support"]) * (1.0 if y < 40 else 0.4):   # ~90% partner by 45 (CPS)
                 name = r.choice([n for n in NAMES if n not in {x.name for x in self.people}] or NAMES)
                 partner = Relative(name, "partner", m - int(r.gauss(0, 3) * 12), clip(r.gauss(0.75, 0.1)), joined=m)
                 self.people.append(partner)
@@ -368,7 +368,7 @@ class Family:
             return out
         t = m - pt.joined
         strict = F["cultural_strictness"] > 0.6
-        if not pt.married and t >= 6 and r.random() < (0.03 if strict else 0.012) * (0.5 + F["partner_support"]) \
+        if not pt.married and t >= 6 and r.random() < (0.03 if strict else 0.02) * (0.5 + F["partner_support"]) \
                 * (1.0 if pt.cohabiting or strict else 0.0):
             pt.married = True
             if not pt.cohabiting:
@@ -460,7 +460,7 @@ class Family:
             if chose:
                 chance = 0.12 * (0.3 + s["fertility"])
             elif partner and len(kids) < 3:
-                chance = 0.05 * (0.3 + s["fertility"]) * (1.0 - 0.45 * len(kids)) * (0.4 + F["partner_support"])
+                chance = 0.035 * (0.3 + s["fertility"]) * (1.0 - 0.45 * len(kids)) * (0.4 + F["partner_support"])
             else:
                 chance = 0.0
             if not hasattr(self, "subfertile"):
