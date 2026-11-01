@@ -28,12 +28,12 @@ import statistics as st
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from . import factors as fx
 from . import proc
 
-COPY = ("resume.pt", "events.jsonl", "brain_nodes.jsonl", "brain_edges.jsonl", "memory.json", "mind.pt")
+COPY = ("resume.pt", "events.jsonl", "timeline.jsonl", "brain_nodes.jsonl", "brain_edges.jsonl", "memory.json", "mind.pt")
 
 
 def parse_arm(spec: str) -> dict:
@@ -55,10 +55,25 @@ def parse_arm(spec: str) -> dict:
     return arm
 
 
-def fork(src: Path, arm: dict, name: str, months: int) -> Path:
+def snapshot(src: Path, name: str) -> Path:
+    """One frozen copy of the source's saved month, so every arm starts from exactly the same state even if the
+    source life is still running and saves again while the arms run."""
     if not (src / "resume.pt").exists():
         raise SystemExit(f"{src} has no resume.pt to fork from (stop the life once, or wait for a checkpoint)")
-    dst = src.parent / f"{name}-{arm['name']}"
+    snap = src.parent / "_snapshots" / name
+    if snap.exists():
+        shutil.rmtree(snap)
+    snap.mkdir(parents=True)
+    for f in COPY + ("config.json", "live.json"):
+        if (src / f).exists():
+            shutil.copy2(src / f, snap / f)
+    return snap
+
+
+def fork(src: Path, arm: dict, name: str, months: int, root: Optional[Path] = None, origin: str = "") -> Path:
+    if not (src / "resume.pt").exists():
+        raise SystemExit(f"{src} has no resume.pt to fork from (stop the life once, or wait for a checkpoint)")
+    dst = (root or src.parent) / f"{name}-{arm['name']}"
     if dst.exists():
         shutil.rmtree(dst)
     dst.mkdir(parents=True)
@@ -71,7 +86,7 @@ def fork(src: Path, arm: dict, name: str, months: int) -> Path:
     age_m = int(torch.load(src / "resume.pt", map_location="cpu", weights_only=False)["age"])
     cfg["max_age_years"] = (age_m + months) / 12
     cfg["ablate"] = sorted(set(cfg.get("ablate", [])) | set(arm["ablate"]))
-    cfg["experiment"] = {"name": name, "arm": arm, "forked_from": src.name, "fork_age_months": age_m}
+    cfg["experiment"] = {"name": name, "arm": arm, "forked_from": origin or src.name, "fork_age_months": age_m}
     (dst / "config.json").write_text(json.dumps(cfg, indent=1), encoding="utf-8")
     lines = [json.dumps({"key": k, "value": v}) for k, v in arm["factors"].items()]
     if arm["state"]:
@@ -163,13 +178,15 @@ def main(argv: List[str] = None) -> None:
     if not any(x["name"] == "control" for x in arms):
         arms.insert(0, parse_arm("control"))
     results = {}
+    snap = snapshot(src, a.name)                       # every arm forks from this one saved month
     for arm in arms:
-        dst = fork(src, arm, a.name, a.months)
+        dst = fork(snap, arm, a.name, a.months, root=src.parent, origin=src.name)
         print(f"running arm {arm['name']} in {dst} ...", flush=True)
         code = run_arm(dst, a.device)
         if code != 0:
             print(f"arm {arm['name']} exited with code {code}", flush=True)
         results[arm["name"]] = measure(dst)
+    shutil.rmtree(snap, ignore_errors=True)
     diff = compare(results)
     out = {"name": a.name, "from": src.name, "months": a.months, "arms": results, "vs_control": diff}
     (src.parent / f"{a.name}-report.json").write_text(json.dumps(out, indent=1), encoding="utf-8")

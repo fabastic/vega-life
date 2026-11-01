@@ -64,8 +64,9 @@ def test_separating_splits_the_household_and_leaves_an_ex():
 def test_living_together_pools_money():
     p, F, ch, pt = _partnered()
     q = p.clone()
-    q.family.partner(q.age).cohabiting = False
-    for _ in range(12):
+    qp = q.family.partner(q.age)
+    qp.cohabiting, qp.joined = False, q.age                # a new relationship: too soon to move in
+    for _ in range(6):
         p.step_month(F)
         q.step_month(F)
     assert p.family.pooled(p.age) and not q.family.pooled(q.age)
@@ -216,7 +217,7 @@ def test_fork_lab_parses_arms():
 
 
 def test_fork_lab_runs_two_arms(tmp_path, monkeypatch):
-    from vegalife.experiment import compare, fork, measure, parse_arm, run_arm
+    from vegalife.experiment import compare, fork, measure, parse_arm, run_arm, snapshot
     from vegalife.trainer import Life
     monkeypatch.setenv("VEGA_DEVICE", "cpu")
     src = tmp_path / "base"
@@ -226,9 +227,11 @@ def test_fork_lab_runs_two_arms(tmp_path, monkeypatch):
     (src / "config.json").write_text(json.dumps({"seed": 3, "profile": "tiny", "max_age_years": 0.5, "sim": fast}))
     Life(src).run()
     results = {}
+    snap = snapshot(src, "ex")                     # arms fork from one frozen month, even if the source saves again
+    (src / "resume.pt").write_bytes(b"newer checkpoint written by a still-running life")
     for spec in ("control", "noconscience:ablate=conscience,state.wealth=0.0"):
         arm = parse_arm(spec)
-        dst = fork(src, arm, "ex", 3)
+        dst = fork(snap, arm, "ex", 3, root=tmp_path, origin="base")
         assert run_arm(dst, "cpu") == 0
         results[arm["name"]] = measure(dst)
     d = compare(results)
