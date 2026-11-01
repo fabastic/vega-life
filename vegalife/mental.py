@@ -44,7 +44,7 @@ from .factors import FactorSet
 # condition: (base first-onset hazard per month, onset window (from, peak start, peak end, to), chance an episode
 # ends each month untreated, treated, death-rate multiplier while active, recurrence hazard after the first)
 EPISODIC: Dict[str, tuple] = {
-    "depression": (0.00006, (11, 15, 35, 90), 0.11, 0.2, 1.5, 0.0012),
+    "depression": (0.000045, (11, 15, 35, 90), 0.11, 0.2, 1.5, 0.0012),
     "anxiety": (0.00016, (6, 10, 30, 90), 0.035, 0.09, 1.1, 0.0008),
     "PTSD": (0.0, (4, 4, 90, 95), 0.04, 0.1, 1.3, 0.0),
     "OCD": (0.00005, (8, 12, 25, 50), 0.02, 0.06, 1.1, 0.002),
@@ -93,7 +93,7 @@ class MentalHealth:
         self.autism = r.random() < (1 / 20 if male else 1 / 71) * g
         self.adhd = r.random() < (0.085 if male else 0.042) * g * (1.3 if self.autism else 1.0)
         # Dyslexia: about 5-10% of children (more boys), strongly heritable; reading is slower all his life.
-        self.dyslexia = r.random() < 0.05 * g * (1.3 if male else 0.75)
+        self.dyslexia = r.random() < 0.065 * g * (1.3 if male else 0.75)
         self.diagnosed: Dict[str, Optional[int]] = {"autism": None, "ADHD": None, "dyslexia": None}
         self.active: Dict[str, int] = {}               # condition -> month the episode began
         self.treated: Dict[str, bool] = {}
