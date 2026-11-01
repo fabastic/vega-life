@@ -142,7 +142,7 @@ class Character:
         season = getattr(getattr(p, "seasons", None), "shape", 0.0)      # midlife dip, late-life regret (seasons.py)
         season += getattr(getattr(p, "hormones", None), "mood_drag", 0.0)   # PMS, winter, low testosterone
         season += getattr(getattr(p, "surroundings", None), "mood_drag", 0.0)   # a long commute
-        s["mood"] = clip(0.5 + 1.4 * (w - s["mood_baseline"]) + 0.6 * (w - 0.45) + 0.75 * (s.get("joy", 0.5) - 0.62)
+        s["mood"] = clip(0.5 + 1.4 * (w - s["mood_baseline"]) + 0.6 * (w - 0.5) + 0.75 * (s.get("joy", 0.5) - 0.62)
                          - season)
 
     def nudge(self, p: Person, key: str, valence: float, arousal: float = 0.5) -> Dict[str, float]:
