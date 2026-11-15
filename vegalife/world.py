@@ -31,6 +31,7 @@ from .illness import Illness, mortality_norm
 from .hormones import Hormones
 from .hardships import Hardships
 from .economy import UNIVERSAL_CARE, Economy
+from .voice import in_voice
 from .surroundings import Surroundings
 
 GROUPS = {
@@ -63,6 +64,7 @@ def toward(cur: float, target: float, rate: float) -> float:
 class Person:
     def __init__(self, F: FactorSet, seed: int, circle=None, family: Optional[list] = None):
         self.rng = random.Random(seed * 104729 + 3)
+        self.female = F["sex"] < 0.5             # his lines are written in her voice when she is a woman (voice.py)
         self.circle = circle                     # people.Circle: his friends
         self.n_siblings = round(3 * F["siblings"])
         self.tertiary_until = 0                  # month his studies after school end; 0 = not studying
@@ -105,6 +107,7 @@ class Person:
         """A life saved by older code (a checkpoint from before family, chemistry and work existed) carries on with
         them: his family is seeded as it would have been, everyone who is still alive is still alive, and the new
         states start from their resting values."""
+        self.female = F["sex"] < 0.5
         for g in GROUPS.values():
             for k in g:
                 self.s.setdefault(k, 0.0)
@@ -179,6 +182,7 @@ class Person:
         """Something happens to him. `valence` (-1 bad .. 1 good) and `arousal` (0 calm .. 1 intense) say how it felt;
         memorable events are taken into his autobiographical memory (memory.py). Everything, memorable or not, goes
         to `happenings` for his brain map; `cause` is the brain-map id of what led to it, when known."""
+        text = in_voice(text, getattr(self, "female", False))
         h = {"text": text, "valence": valence, "arousal": arousal, "who": list(who or []),
              "key": key or text.split(" ")[0], "cause": cause, "deltas": dict(deltas or {}), "memorable": memorable}
         self.events.append(text)

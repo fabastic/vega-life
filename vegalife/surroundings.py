@@ -30,6 +30,7 @@ import random
 from typing import Dict, List
 
 from .factors import FactorSet
+from .voice import in_voice
 
 ROLES = [("coach", "his football coach", {"motor": 0.02, "resilience": 0.01},
           ["{n}, his coach, tells him he could go far", "{n} drives him home after training when no one else can"]),
@@ -129,7 +130,7 @@ class Surroundings:
                 if y >= nb["met"] and r.random() < 0.01:
                     role = next(x for x in ROLES if x[0] == nb["role"])
                     p.apply(role[2], fades=False)
-                    text = r.choice(role[3]).format(n=nb["name"])
+                    text = in_voice(r.choice(role[3]), getattr(p, "female", False)).format(n=nb["name"])
                     self.recent.append([round(y, 1), text])
                     out.append({"text": text, "valence": 0.6, "arousal": 0.4, "who": [nb["name"]], "key": "mentor",
                                 "deltas": dict(role[2])})
