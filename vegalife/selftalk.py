@@ -202,10 +202,72 @@ def conversation(p, F, present, mem, name: str, r: random.Random) -> List[str]:
         head.append(cs.line())
     if mem is not None and turns[0][0] == "What do you remember?":
         head.append("Memory: " + turns[0][1][:110])
+    elif mem is not None and mem.episodes and p.years >= 5 and r.random() < 0.3:   # a memory a question brings back
+        mq = memory_question(p, mem, name, r)
+        if mq is not None:
+            head.append("Memory: " + mq.memory)
+            q = mq.prompt.split(f"{ASKER}: ", 1)[1].split("\n", 1)[0]
+            turns = [(q, mq.memory)]
     lines = []
     for q, a in turns:
         lines += [f"{ASKER}: {r.choice(VARIANTS.get(q, [q]))}", f"{name}: {a}"]
     return head + lines
+
+
+# ---------------------------------------------------------------- talking from a memory (round 3)
+@dataclass
+class MemoryQuestion:
+    """A question that brings back one of his memories, with the memory in the prompt as chat puts it there. The
+    answer is checked against what that memory holds: who was there, how old he was, and what happened."""
+    key: str
+    prompt: str
+    memory: str
+    who: List[str]
+    age: Optional[int]
+    words: List[str]
+
+
+CUES = ["Do you remember {who}?", "Tell me about {who}.", "What happened with {who}?", "Do you think about {who}?"]
+CUES_AGE = ["What happened when you were {age}?", "Do you remember being {age}?", "Tell me about when you were {age}."]
+MEM_QUIET = {"when", "was", "were", "about", "felt", "that", "with", "they", "them", "then", "this", "there", "what",
+             "have", "just", "very", "think", "sure", "remember", "because", "from", "into", "after", "before"}
+
+
+def memory_question(p, mem, name: str, r: random.Random) -> Optional[MemoryQuestion]:
+    if mem is None or not mem.episodes:
+        return None
+    pool = [e for e in mem.episodes if e.strength > 0.2] or mem.episodes
+    ep = r.choices(pool, weights=[e.strength * (0.5 + e.salience) for e in pool])[0]
+    told = mem.render(ep)[:110]
+    age = ep.age // 12 if ep.detail >= 0.75 else None
+    who = [w for w in ep.who if w and w[0].isupper()][:2]
+    if who and r.random() < 0.7:
+        q = r.choice(CUES).format(who=who[0])
+    else:
+        q = r.choice(CUES_AGE).format(age=ep.age // 12)
+    words = sorted({w for w in re.findall(r"[a-z]{4,}", told.lower()) if w not in MEM_QUIET})[:8]
+    prompt = f"Memory: {told}\n{ASKER}: {q}\n{name}:"
+    return MemoryQuestion(f"memory_{ep.key}", prompt, told, who, age, words)
+
+
+def score_memory(q: MemoryQuestion, text: str) -> float:
+    """How much of the memory he actually tells: the person (0.35), his age then (0.25, when he remembers it), and
+    what happened (0.4, by the memory's own words). Nothing said, or nothing from the memory, is -0.3."""
+    t = text.strip().lower()
+    if not t:
+        return -0.3
+    parts, weight = 0.0, 0.0
+    if q.who:
+        weight += 0.35
+        parts += 0.35 * any(w.lower() in t for w in q.who)
+    if q.age is not None:
+        weight += 0.25
+        parts += 0.25 * (q.age in numbers_in(t))
+    if q.words:
+        weight += 0.4
+        parts += 0.4 * min(1.0, sum(w in t for w in q.words) / min(3, len(q.words)))
+    s = parts / weight if weight else 0.0
+    return s if s > 0 else -0.3
 
 
 def self_question(p, F, present, name: str, r: random.Random) -> Optional[SelfQuestion]:
