@@ -34,3 +34,19 @@ def test_a_womans_life_is_told_as_hers():
                 stray.append(h["text"])
         p.happenings.clear()
     assert lines > 100 and not stray, stray[:5]
+
+
+def test_memory_questions_are_scored_by_what_the_memory_holds():
+    import random
+    from vegalife.memory import Memory
+    from vegalife.selftalk import memory_question, score_memory
+    F = fx.sample(6)
+    p = Person(F, 6, Circle(F, 6))
+    mem = Memory(F, 6)
+    mem.add(8 * 12, "event", "friend", "social", "meets Yuki at the swimming pool", ["Yuki"], 0.7, 0.6)
+    p.age = 10 * 12
+    q = memory_question(p, mem, "Vega", random.Random(1))
+    assert q is not None and q.prompt.startswith("Memory: ") and q.prompt.endswith("Vega:")
+    told = score_memory(q, "I met Yuki at the swimming pool when I was 8.")
+    assert told > 0.8 and score_memory(q, "I like trains.") == -0.3 and score_memory(q, "") == -0.3
+    assert 0 < score_memory(q, "Yuki!") < told
