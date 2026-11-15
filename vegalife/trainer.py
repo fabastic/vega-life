@@ -45,7 +45,7 @@ from .present import Present, problem_scene
 from .scenarios import TIERS, Problem, draw, max_tier, problem_rate, render_problem, render_scenario_ex, shuffled_order
 from . import proc
 from .chat import Inbox, Talker
-from .selftalk import SelfQuestion, candidates, score_self, self_question
+from .selftalk import MemoryQuestion, SelfQuestion, candidates, memory_question, score_memory, score_self, self_question
 from .cortex import Cortex, Probe
 from .selftalk import ASKER
 
@@ -526,6 +526,13 @@ class Life:
             rec = {"kind": "self", "key": item.key, "prompt": item.prompt, "answer": item.answer, "responses": texts,
                    "rewards": rewards, "lived": lived, "lived_reward": lived_r,
                    "outcome": "right" if lived_r >= 0.99 else "partly" if lived_r > 0.3 else "wrong"}
+        elif isinstance(item, MemoryQuestion):       # talking from a memory: rewarded for telling what it holds
+            texts, rewards, _, lived, lived_r = grpo(self.model, self.opt, item.prompt,
+                                                     lambda t: score_memory(item, t), k, 40, temp, self.device,
+                                                     self.amp, lived_temperature=lived_temp)
+            rec = {"kind": "memory", "key": item.key, "prompt": item.prompt, "responses": texts, "rewards": rewards,
+                   "lived": lived, "lived_reward": lived_r,
+                   "outcome": "told" if lived_r >= 0.6 else "partly" if lived_r > 0 else "missed"}
         elif isinstance(item, Problem):
             now = self.present.moment(self.p, self.F, self.r, problem_scene(self.p)).line()
             prompt = render_problem(item, self.p, now)
@@ -703,6 +710,10 @@ class Life:
         items = draw(self.p, self.F, self.r, int(self.sim["max_items_per_month"]), self.pick_tier)
         if self.p.years >= 3 and self.r.random() < 0.5:   # a question about himself with a checkable answer
             items.append(self_question(self.p, self.F, self.present, self.speech.name, self.r))
+        if self.p.years >= 5 and "memory" not in self.ablate and self.r.random() < 0.3:   # talking from a memory
+            mq = memory_question(self.p, self.mem, self.speech.name, self.r)
+            if mq is not None:
+                items.append(mq)
         for item in items:
             rec = self.face(item)
             rewards.append(rec["lived_reward"])
