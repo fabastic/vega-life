@@ -73,7 +73,14 @@ async function load(){const run=RUN();if(!run)return;history.replaceState(null,'
     fetch('/api/story?run='+encodeURIComponent(run)).then(r=>r.text()).catch(()=>'')]);
   TL=t;const maxA=Math.max(1,live.age_years||0,...(t?t.rows.map(r=>r.age):[1]));view=[0,Math.ceil(maxA)];
   $('stats').textContent=t?`${t.rows.length} happenings · ${(live.age_years||0).toFixed(1)} years`:'';
-  laneUI();drawTL();tree(live);map(pl);days(live);storyView(st)}
+  laneUI();drawTL();tree(live);map(pl);days(live);inner(live);storyView(st)}
+
+// ---------------------------------------------------------------- beliefs, other minds, what stayed unresolved (newer lives only)
+function inner(L){const B=L.beliefs,O=L.others,U=L.unconscious,D=L.drives;$('innerCard').hidden=!(B||O||U||D);if($('innerCard').hidden)return;const p=v=>Math.round(v*100)+'%';
+  $('inner').innerHTML=(B&&B.beliefs?`<table>${B.beliefs.map(b=>`<tr><td>${esc(b.text||b.key)}</td><td class="mono">${p(b.confidence)}</td><td class="muted">from ${esc(b.origin)}, began at ${p(b.prior)}</td></tr>`).join('')}</table>`:'')+
+    (O?`<p>He read other people right ${p(O.pass_rate||0)} of the time (${O.right??0} of ${O.tasks??0}).</p>`:'')+
+    (U&&(U.unresolved||[]).length?`<p class="muted">Never resolved: ${U.unresolved.map(o=>esc(o.text)+' ('+o.since_years+'y)').join('; ')}</p>`:'')+
+    (D?`<p class="muted">Offences: ${Array.isArray(D.offences)?D.offences.length:(D.offences??0)} · pressure at the end ${(+D.pressure||0).toFixed(2)}</p>`:'')}
 
 // ---------------------------------------------------------------- timeline
 function laneUI(){if(!TL)return;$('lanes').innerHTML=TL.lanes.map(l=>`<label><input type="checkbox" data-l="${l}" ${hidden.has(l)?'':'checked'}>${esc(TL.labels[l])}</label>`).join('');
