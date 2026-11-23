@@ -20,10 +20,6 @@
  color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
-/* a fine dither over everything, like the grain in the print */
-body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.5;
- background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
-:root[data-theme="light"] body::after{opacity:.25;background:repeating-linear-gradient(0deg,rgba(80,60,20,.06) 0 1px,transparent 1px 3px)}
 a{color:var(--acc)}
 ::selection{background:var(--acc);color:var(--bg)}
 .topbar{display:flex;gap:10px 16px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);
@@ -35,18 +31,17 @@ a{color:var(--acc)}
 .brand b{font:400 20px/1 var(--block);letter-spacing:.14em;color:transparent;
  background:repeating-linear-gradient(90deg,var(--sand) 0 3px,color-mix(in srgb,var(--sand) 45%,transparent) 3px 4px);-webkit-background-clip:text;background-clip:text}
 .brand small{display:block;font:500 9.5px/1.2 var(--mono);color:var(--muted);letter-spacing:.2em;margin-top:5px;text-transform:uppercase}
-.seg{display:inline-flex;padding:3px;border:1px solid var(--line2);border-radius:var(--r);background:var(--bar);gap:2px}
+.seg{display:inline-flex;flex-wrap:wrap;max-width:100%;padding:3px;border:1px solid var(--line2);border-radius:var(--r);background:var(--bar);gap:2px}
 .seg button{border:0;background:transparent;color:var(--muted);border-radius:3px;padding:5px 14px;font:500 11.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 .seg button:hover{color:var(--ink);box-shadow:none}
 .seg button.on{background:var(--acc);color:#03070d;box-shadow:none}
-.seg button.on::before{content:"";display:inline-block;width:6px;height:6px;background:var(--acc2);margin-right:8px;vertical-align:1px;animation:blink 1.4s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
 .spacer{flex:1}
 button,.btn{background:var(--bar);color:var(--ink);border:1px solid var(--line2);border-radius:var(--r);padding:6px 12px;cursor:pointer;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;transition:transform .18s cubic-bezier(.3,1.8,.5,1),border-color .15s,background .15s}
-button:hover:not(:disabled){border-color:var(--acc);transform:translateY(-2px) rotate(-.6deg)}
+button:hover:not(:disabled){border-color:var(--acc)}
 button:active:not(:disabled){transform:translateY(1px)}
 button:disabled{opacity:.4;cursor:not-allowed}
-button.primary{background:var(--grad);color:#03070d;border-color:transparent;font-weight:700}
+button.primary{background:var(--acc);color:#03070d;border-color:transparent;font-weight:700}
 button.primary:hover:not(:disabled){filter:brightness(1.15) saturate(1.2)}
 button.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,var(--line2))}
 button.danger:hover:not(:disabled){border-color:var(--bad)}
@@ -55,10 +50,8 @@ input,select,textarea{background:var(--bg2);color:var(--ink);border:1px solid va
 input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:var(--glow)}
 input[type=checkbox]{accent-color:var(--acc)}
 input[type=range]{accent-color:var(--acc);padding:0;background:transparent;border:0;box-shadow:none}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0;box-shadow:var(--shadow);position:relative}
-.card h2{font:600 10.5px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
-.card h2::before{content:"";width:8px;height:8px;background:var(--acc);flex:none;transition:transform .4s}
-.card:hover h2::before{transform:rotate(45deg) scale(1.2);background:var(--acc2)}
+.card{background:var(--panel-solid);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0;position:relative}
+.card h2{font:600 11px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:8px}
 .muted{color:var(--muted)}
 .mono{font-family:var(--mono)}
 .pill{display:inline-flex;align-items:center;gap:6px;font:500 10.5px var(--mono);padding:2px 9px;border-radius:3px;border:1px solid var(--line2);color:var(--muted);white-space:nowrap;text-transform:uppercase;letter-spacing:.08em}
