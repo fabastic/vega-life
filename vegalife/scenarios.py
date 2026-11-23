@@ -314,7 +314,82 @@ SCHOOL_AND_FRIENDS = [
                      if ok(r, 0.25 + 0.4 * F["teacher_warmth"] + 0.3 * F["tutoring_access"]) else {"anxiety": 0.01})]),
 ]
 
-ALL_SCENARIOS: List[Scenario] = INFANCY + CHILDHOOD + ADOLESCENCE + EARLY + MIDDLE + LATE + SCHOOL_AND_FRIENDS
+# --------------------------------------------------------------------------- drives: urges, crime, vigilantism (drives.py)
+def _dr(p):
+    d = getattr(p, "drives", None)
+    return None if d is None or d.off else d
+
+
+def _need(p, k):
+    d = _dr(p)
+    return d.need[k] if d else 0.0
+
+
+def _caught(r, p, base):
+    """Breaking the law: the chance of being caught rises with how often he has been before (police know him)."""
+    return ok(r, base + 0.15 * p.s["police_contact"])
+
+
+ADULT_ON = ("adolescence", "early_adult", "middle_adult")
+DRIVE_SCENARIOS = [
+    Scenario("steal_chance", ADULT_ON, "socioeconomic",
+             lambda p, F: 0.12 * _need(p, "survival") * (0.5 + p.s["thrill"]) if _dr(p) else 0.0,
+             lambda p, F, r: "You are broke and hungry. A shop's back door is open, nobody watching.",
+             [Choice("take what you need and run", lambda p, F, r: {"police_contact": 1.0, "anxiety": 0.05,
+                                                                    "community_support": -0.04, "financial_stress": 0.01}
+                     if _caught(r, p, 0.3) else {"wealth": 0.02, "financial_stress": -0.02, "anxiety": 0.01}),
+              Choice("walk away", lambda p, F, r: {"financial_stress": 0.005}),
+              Choice("ask a food bank or friend for help", lambda p, F, r: {"community_support": 0.02, "financial_stress": -0.01}
+                     if ok(r, 0.4 + 0.4 * p.s["community_support"]) else {"anxiety": 0.01}),
+              Choice("go in and ask the owner for work", lambda p, F, r: {"employed": 0.1, "income": 0.02}
+                     if ok(r, 0.15) else {"resilience": 0.005})]),
+    Scenario("provoked", ADULT_ON, "social",
+             lambda p, F: 0.15 * (0.3 + p.s["aggression"]) * (1.4 - F["neighbourhood_safety"]) if _dr(p) else 0.0,
+             lambda p, F, r: "Someone shoves you and calls you names in front of everyone.",
+             [Choice("hit him back hard", lambda p, F, r: {"police_contact": 1.0, "health": -0.03, "anxiety": 0.03}
+                     if _caught(r, p, 0.25) else {"health": -0.02 if ok(r, 0.4) else 0.0, "aggression": 0.05}),
+              Choice("walk away", lambda p, F, r: {"anxiety": 0.01}),
+              Choice("tell someone in charge", lambda p, F, r: {"community_support": 0.01}
+                     if ok(r, 0.5) else {"peer_isolation": 0.01}),
+              Choice("laugh it off", lambda p, F, r: {"resilience": 0.01})]),
+    Scenario("want_it", ADULT_ON, "socioeconomic",
+             lambda p, F: 0.1 * (0.5 + p.s["thrill"]) if _dr(p) else 0.0,
+             lambda p, F, r: "You want the new phone everyone has. You cannot afford it.",
+             [Choice("buy it on credit", lambda p, F, r: {"wealth": -0.02, "financial_stress": 0.02, "peer_isolation": -0.01}),
+              Choice("save for it month by month", lambda p, F, r: {"goal_horizon": 0.02, "wealth": -0.005}),
+              Choice("steal one from a shop", lambda p, F, r: {"police_contact": 1.0, "anxiety": 0.04, "household_friction": 0.03}
+                     if _caught(r, p, 0.35) else {"peer_isolation": -0.01, "anxiety": 0.01}),
+              Choice("decide you do not need it", lambda p, F, r: {"autonomy": 0.01})]),
+    Scenario("witness_crime", ADULT_ON, "social",
+             lambda p, F: 0.05 * (1.4 - F["neighbourhood_safety"]) if _dr(p) else 0.0,
+             lambda p, F, r: "In the street, a man is grabbing an old woman's bag.",
+             [Choice("run at him and fight him off", lambda p, F, r: {"health": -0.06, "resilience": 0.02}
+                     if ok(r, 0.4) else {"community_support": 0.04, "resilience": 0.03}),
+              Choice("call the police and stay with her", lambda p, F, r: {"community_support": 0.02}),
+              Choice("film it on your phone", lambda p, F, r: {"anxiety": 0.01}),
+              Choice("keep walking", lambda p, F, r: {"anxiety": 0.01, "nihilism": 0.01})]),
+    Scenario("vigilante", ADULT_ON, "social",
+             lambda p, F: 0.08 * p.s["grudge"] * (1.0 if has_friends(p) else 0.5) if _dr(p) else 0.0,
+             lambda p, F, r: f"The man who hurt {friend_name(p, r, 'closeness')} walks free. Police did nothing.",
+             [Choice("find him and hit him until he learns", lambda p, F, r: {"police_contact": 1.0, "anxiety": 0.05,
+                                                                              "health": -0.03, "household_friction": 0.03}
+                     if _caught(r, p, 0.4) else {"grudge": -0.2, "aggression": 0.05, "anxiety": 0.02}),
+              Choice("push the police for a court case", lambda p, F, r: {"grudge": -0.15, "community_support": 0.02}
+                     if ok(r, 0.25 + 0.3 * F["healthcare_access"]) else {"grudge": 0.05, "nihilism": 0.02}),
+              Choice("get neighbours to watch and warn", lambda p, F, r: {"community_support": 0.04,
+                                                                                               "grudge": -0.05}),
+              Choice("let it go, look after your friend", lambda p, F, r: {"grudge": -0.1, "attachment": 0.01})]),
+    Scenario("get_even", ADULT_ON, "social",
+             lambda p, F: 0.06 * p.s["grudge"] if _dr(p) else 0.0,
+             lambda p, F, r: "You see the person who wronged you, alone, next to their car.",
+             [Choice("smash their car windows", lambda p, F, r: {"police_contact": 1.0, "anxiety": 0.04, "wealth": -0.02}
+                     if _caught(r, p, 0.35) else {"grudge": -0.2, "anxiety": 0.02}),
+              Choice("tell them to their face what they did", lambda p, F, r: {"grudge": -0.1, "autonomy": 0.01}),
+              Choice("walk away", lambda p, F, r: {"grudge": -0.02}),
+              Choice("forgive them in your head and move on", lambda p, F, r: {"grudge": -0.15, "mood": 0.01})]),
+]
+
+ALL_SCENARIOS: List[Scenario] = INFANCY + CHILDHOOD + ADOLESCENCE + EARLY + MIDDLE + LATE + SCHOOL_AND_FRIENDS + DRIVE_SCENARIOS
 
 # Consequences that arrive later: (scenario key, choice index) -> (deltas, months). These are where present bias
 # bites: the cost of partying shows up at exam time, the payoff of learning the craft a year on.
