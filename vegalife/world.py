@@ -50,6 +50,7 @@ GROUPS = {
     "economy": ["academic", "employed", "skill_value", "income", "wealth", "housing", "pension", "children",
                 "schooling", "credential", "financial_stress"],
     "chemistry": list(HORMONES),
+    "drives": ["thrill", "aggression", "grudge", "police_contact"],
     "personality": ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism",
                     "sleep", "mood", "mood_baseline"],
 }
@@ -131,7 +132,7 @@ class Person:
         self._new_parts(F, seed)
 
     PARTS = ("school", "mind", "online", "bonds", "prejudice", "seasons", "illness", "hormones", "hardships", "economy",
-             "surroundings")
+             "surroundings", "beliefs", "others", "unconscious", "drives")
 
     def _new_parts(self, F: FactorSet, seed: int) -> None:
         """School as it runs where he lives, his mental health, his phone, how each relationship goes, and the
@@ -162,6 +163,14 @@ class Person:
             self.economy = Economy(F, seed)                            # occupation, cash flow, money stress, migration
         if not hasattr(self, "surroundings"):
             self.surroundings = Surroundings(F, seed)                  # the place, as doses over years
+        if not hasattr(self, "beliefs"):
+            self.beliefs = Beliefs(F, seed)                            # what he holds true (expansion 1.1)
+        if not hasattr(self, "others"):
+            self.others = OtherMinds(seed)                             # other people's minds (1.2)
+        if not hasattr(self, "unconscious"):
+            self.unconscious = Unconscious(seed)                       # what shapes him unknown to him (1.3)
+        if not hasattr(self, "drives"):
+            self.drives = Drives(seed)                                 # needs, urges, wants (1.5)
         if not hasattr(self, "residence"):
             self.residence = "home"                                    # or "care_facility" (seasons.py)
 
@@ -496,6 +505,8 @@ class Person:
                            - 0.14 * s["social_isolation"] * (y > 56) - 0.06 * s["loneliness"] * (y > 30)
                            - 0.25 * (1 - s["telomere"]) - 0.25 * self.illness.burden()
                            - 0.08 * (1 - self.care(F)) * (s["inflammation"] + s["allostatic_load"]))
+        self.drives.step(self, F)              # needs and urges, before the hardships they push toward (drives.py)
+        self.others.step(self)                 # anyone new in his life starts with their own view of him (tom.py)
         # --- the people around him: ageing, dying, leaving; and the grief that follows (family.py) -------
         for h in (self.family.step(self, F) + self.work.step(self, F) + self.bonds.step(self, F)
                   + self.mind.step(self, F) + self.online.step(self, F) + self.prejudice.step(self, F)
