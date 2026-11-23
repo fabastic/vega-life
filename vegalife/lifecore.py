@@ -33,6 +33,18 @@ FEELING = (("anxiety", 0.015, "scared"), ("health", -0.02, "hurt"), ("peer_isola
            ("attachment", 0.015, "safe"), ("resilience", 0.01, "capable"), ("academic", 0.015, "proud"))
 
 
+def record(L, age: int, kind: str, key: str, text: str, who, valence: float, beliefs: dict, **extra) -> None:
+    """The life record (expansion plan 1.4): every happening and choice with who was in it, how it felt and which
+    beliefs it moved, one line each in lifelog.jsonl, for replaying and querying a life later."""
+    f = getattr(L, "lifelog_f", None)
+    if f is None:
+        return
+    row = {"age": round(age / 12, 3), "kind": kind, "key": key, "text": text[:200], "who": list(who or []),
+           "v": round(valence, 3), "beliefs": {k: round(v, 4) for k, v in beliefs.items()}}
+    row.update(extra)
+    f.write(json.dumps(row) + "\n")
+
+
 def world_month(L, attribute: bool = True) -> List[str]:
     """L has: p, F, character, present, mem, brain (or None), say(text). Returns the month's event texts."""
     p, F = L.p, L.F
