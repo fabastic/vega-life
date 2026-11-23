@@ -214,6 +214,8 @@ class Life:
         self.started = time.time()
         self.events_f = open(run_dir / "events.jsonl", "a", encoding="utf-8")
         self.timeline_f = open(run_dir / "timeline.jsonl", "a", encoding="utf-8")   # every happening, by lane (story.py)
+        self.lifelog_f = open(run_dir / "lifelog.jsonl", "a", encoding="utf-8")     # the life record (lifecore.record)
+        self.letters_seen = 0                                                       # letters.jsonl lines read
         self.brain = BrainMap(run_dir) if sim["brain_map"] else None
         if self.brain is not None and ck is None:
             bmod.backbone(self.brain)
@@ -243,6 +245,12 @@ class Life:
             self.speech.mem = None
         if "replay" in self.ablate:
             self.sim["replay_steps"] = 0
+        if "beliefs" in self.ablate:
+            self.p.beliefs.off = True
+        if "implicit" in self.ablate:
+            self.p.unconscious.off = True
+        if "drives" in self.ablate:
+            self.p.drives.off = True
 
     def _shape_text(self) -> str:
         c = self.model.config()
@@ -285,13 +293,19 @@ class Life:
             chat_r = random.Random(int(self.cfg["seed"]) * 17 + 5)
             now = lambda: self.present.moment(self.p, self.F, chat_r, "talk", keep=False).line()
             self._talker = Talker(self.model, self.device, self.amp, self.speech.name, self.mem, now, self.p.age,
-                                  int(self.cfg["seed"]), thought=lambda: self.p.conscious.chat_line())
+                                  int(self.cfg["seed"]), thought=lambda: self._chat_thought())
         self._talker.model, self._talker.mem, self._talker.age = self.model, self.mem, self.p.age
         try:
             self.inbox.serve(lambda: self._talker, "live")
         except Exception as e:                       # a failed reply must never end a life
             with open(self.dir / "chat_out.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps({"id": "error", "error": repr(e)[:300], "t": time.time()}) + "\n")
+
+    def _chat_thought(self) -> str:
+        """What is on his mind when someone talks to him: his thoughts, then his strongest beliefs."""
+        line = self.p.conscious.chat_line()
+        b = self.p.beliefs.line()
+        return (line + "\n" + b) if line and b else (line or b)
 
     def say(self, text: str) -> None:
         self.log.append({"age": round(self.p.years, 2), "text": text})
@@ -534,6 +548,23 @@ class Life:
             rec = {"kind": "memory", "key": item.key, "prompt": item.prompt, "responses": texts, "rewards": rewards,
                    "lived": lived, "lived_reward": lived_r,
                    "outcome": "told" if lived_r >= 0.6 else "partly" if lived_r > 0 else "missed"}
+        elif isinstance(item, ToMTask):              # another mind: one right answer (tom.py)
+            now = self.present.moment(self.p, self.F, self.r, "talk", keep=False).line()
+            order = list(range(len(item.options)))
+            self.r.shuffle(order)
+            opts = "\n".join(f"{'ABCD'[i]}) {item.options[j]}" for i, j in enumerate(order))
+            prompt = f"{now}\n{item.prompt}\n{opts}\nAnswer:"
+            right = order.index(item.answer)
+
+            def tom_score(t):
+                c_ = parse_choice(t)
+                return -0.3 if c_ < 0 else float(c_ == right)
+            texts, rewards, _, lived, lived_r = grpo(self.model, self.opt, prompt, tom_score, k, 4, temp, self.device,
+                                                     self.amp, lived_temperature=lived_temp)
+            self.p.others.scored(self.p, item, lived_r >= 1.0)
+            rec = {"kind": "tom", "key": item.key, "about": item.about, "prompt": prompt, "answer": "ABCD"[right],
+                   "responses": texts, "rewards": rewards, "lived": lived, "lived_reward": lived_r,
+                   "outcome": "right" if lived_r >= 1.0 else "wrong"}
         elif isinstance(item, Problem):
             now = self.present.moment(self.p, self.F, self.r, problem_scene(self.p)).line()
             prompt = render_problem(item, self.p, now)
@@ -563,7 +594,12 @@ class Life:
                 c_ = pick(t)
                 f = score_scenario(item, self.p, self.F, c_, sc_r, character=self.character,
                                    novelty=lambda c: self.novelty(item.key, c))
-                return f if c_ < 0 else max(-1.0, min(1.0, f + self.p.conscious.weigh(self.p, self.F, item.choices[c_].text)))
+                if c_ < 0:
+                    return f
+                txt = item.choices[c_].text
+                f += self.p.conscious.weigh(self.p, self.F, txt) + self.p.beliefs.bias(txt) \
+                    + self.p.unconscious.bias(item.key, item.domain, sit, txt)
+                return max(-1.0, min(1.0, f))
             texts, rewards, _, lived, lived_r = grpo(self.model, self.opt, prompt, felt, k, 4, temp, self.device, self.amp,
                                                      lived_temperature=lived_temp)
             choice = pick(lived)
@@ -694,6 +730,28 @@ class Life:
             self.interventions_seen = len(lines)
         return True
 
+    def read_letters(self) -> list:
+        """letters.jsonl: messages that reach him in his life, unlike chat. Each one {"from", "text", "valence"?} is
+        heard that month (he learns from it like any speech), becomes a happening he may remember, and can move his
+        beliefs and implicit tags. Logged in events.jsonl, so every way his life was changed is on record."""
+        path = self.dir / "letters.jsonl"
+        if not path.exists():
+            return []
+        lines = path.read_text(encoding="utf-8").splitlines()
+        out = []
+        for line in lines[self.letters_seen:]:
+            try:
+                it = json.loads(line)
+                who, text = str(it.get("from", "Someone"))[:30], str(it["text"])[:600]
+                v = max(-1.0, min(1.0, float(it.get("valence", 0.3))))
+            except (ValueError, KeyError, TypeError):
+                continue
+            out.append(f"{who}: {text}")
+            self.p.note(f"{who} tells him: {text[:120]}", v, 0.5, who=[who], key=str(it.get("key", "letter")))
+            self.say(f"letter from {who}: {text[:80]}")
+        self.letters_seen = len(lines)
+        return out
+
     # ------------------------------------------------------------------ the month and the life
     def month(self) -> None:
         for change in self.F.apply_timeline(self.p.age):
@@ -705,6 +763,7 @@ class Life:
         self.consolidate()
         budget = self.speech.budget(self.p, self.F, int(self.sim["speech_bytes_per_month"]))
         lessons, life = self.speech.month_parts(self.p, self.F, events, budget, self.pick_tier)
+        life = self.read_letters() + life                      # what people wrote or said to him this month
         self.heard = "\n".join(life)[:400]
         loss = self.learn_language(lessons, life)
         rewards, distinct, informative = [], [], []
@@ -715,6 +774,10 @@ class Life:
             mq = memory_question(self.p, self.mem, self.speech.name, self.r)
             if mq is not None:
                 items.append(mq)
+        if self.p.years >= 3 and "tom" not in self.ablate and self.r.random() < 0.4:   # other minds (tom.py)
+            t = self.p.others.task(self.p)
+            if t is not None:
+                items.append(t)
         for item in items:
             rec = self.face(item)
             rewards.append(rec["lived_reward"])
@@ -734,6 +797,10 @@ class Life:
             self.curves["informative"].append([y, round(sum(informative) / len(informative), 3)])
             self.curves["distinct"].append([y, round(sum(distinct) / len(distinct), 3)])
         self.curves["wellbeing"].append([y, round(self.p.wellbeing(), 4)])
+        if self.p.others.tasks:
+            self.curves.setdefault("theory_of_mind", []).append([y, round(self.p.others.ema, 4)])
+        if self.p.age % 3 == 0:
+            self.curves.setdefault("beliefs", []).append([y, self.p.beliefs.vector()])
         self.curves["params"].append([y, self.model.n_params()])
 
     def live(self, status: str) -> None:
@@ -765,6 +832,8 @@ class Life:
             "economy": self.p.economy.to_json(),
             "surroundings": self.p.surroundings.to_json(),
             "dreams": list(self.dreams)[-8:], "ablate": sorted(self.ablate),
+            "beliefs": self.p.beliefs.to_json(), "others": self.p.others.to_json(),
+            "unconscious": self.p.unconscious.to_json(), "drives": self.p.drives.to_json(self.p),
             "self_knowledge": self.probe.last,
             "residence": getattr(self.p, "residence", "home"),
             "memory": self.mem.summary(self.p.age),
@@ -780,14 +849,15 @@ class Life:
     # ------------------------------------------------------------------ checkpoint and resume
     PY_STATE = ("F", "circle", "p", "character", "chosen", "speech", "r", "mem", "present", "lessons", "life_months",
                 "best_eval", "ps_ema", "tier_ema", "tier_n", "curves", "items", "log", "babble", "heard",
-                "interventions_seen", "dreams", "probe")
+                "interventions_seen", "dreams", "probe", "letters_seen")
     BRAIN_STATE = ("nodes", "out", "inn", "counter", "pending_estimates", "pending_counts", "pending_scale")
-    LOGS = ("events.jsonl", "brain_nodes.jsonl", "brain_edges.jsonl")
+    LOGS = ("events.jsonl", "brain_nodes.jsonl", "brain_edges.jsonl", "lifelog.jsonl")
 
     def checkpoint(self) -> None:
         """Everything needed to carry on from this month, written atomically to resume.pt."""
         self.events_f.flush()
         self.timeline_f.flush()
+        self.lifelog_f.flush()
         if self.brain is not None:
             self.brain.flush()
         names = {p: n for n, p in self.model.named_parameters()}
@@ -903,6 +973,7 @@ class Life:
         self.live("finished" if not self.p.alive or self.p.age >= max_m else "stopped")
         self.events_f.close()
         self.timeline_f.close()
+        self.lifelog_f.close()
 
 
 def main() -> None:
