@@ -53,6 +53,7 @@ ASKER_PROMPT = f"{ASKER}: How are you, really?\n"
 from .optim import Lean, backward_step
 from .people import Circle
 from .speech import Speech
+from .tom import ToMTask
 from .world import Person
 
 DEFAULTS = {
