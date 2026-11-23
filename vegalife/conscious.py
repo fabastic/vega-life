@@ -26,7 +26,7 @@ from typing import List, Optional, Tuple
 # Choices that hurt or help someone else, by what they say. Crude but transparent: these are the choice texts in
 # scenarios.py, read the way a person would read them.
 HARM = re.compile(r"\b(hit|lie|lies|steal|cheat|copy|blame|yell|shout|mock|laugh at|call (?:him|her|them) names|"
-                  r"ghost|cut (?:him|her|them) off|keep the money|push (?:him|her|them))\b", re.I)
+                  r"smash|rob|take what you need|ghost|cut (?:him|her|them) off|keep the money|push (?:him|her|them))\b", re.I)
 HELP = re.compile(r"\b(help (?:him|her|them|out|someone|a friend|your)|comfort|apologi[sz]e|share (?:it|your|with)|"
                   r"tell the truth|listen|stand up for|visit|call (?:an old friend|a friend|your)|forgive|give back|"
                   r"look after|ask (?:them|gently)|talk it out)\b", re.I)
