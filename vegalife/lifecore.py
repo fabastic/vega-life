@@ -71,6 +71,11 @@ def world_month(L, attribute: bool = True) -> List[str]:
                 nid = bmod.record_consequence(L.brain, (h["cause"], h["deltas"], h["text"], h["valence"]), age)
             else:
                 nid = bmod.record_event(L.brain, h, age, shifts)
+        dom = EVENT_DOMAIN.get(h["key"], "social")
+        touched = p.beliefs.evidence(p, h["key"], h["valence"], h.get("arousal", 0.4), h["text"])   # beliefs.py
+        p.unconscious.take(age, h["key"], dom, h["who"], h["valence"], h.get("arousal", 0.4), h["text"])
+        p.drives.victimised(p, h["key"])
+        record(L, age, "event", h["key"], h["text"], h["who"], h["valence"], touched)
         if h["memorable"]:                                        # ...and becoming a memory that starts to fade
             ep = L.mem.add(age, "event", h["key"], EVENT_DOMAIN.get(h["key"], "social"), h["text"][:100], h["who"],
                            h["valence"], h["arousal"])
@@ -78,6 +83,7 @@ def world_month(L, attribute: bool = True) -> List[str]:
                 bmod.record_memory(L.brain, nid, ep, age)
     p.happenings.clear()
     p.pending.clear()
+    p.unconscious.step(age)                                       # implicit traces fade, an open wound surfaces
     L.mem.consolidate(age, p.s["sleep"])                          # a night's sleep strengthens what was salient
     L.mem.step(age, p.s)
     if p.alive:                                                   # what wins his attention this month: his thoughts
@@ -112,6 +118,15 @@ def live_choice(L, sc, sit: str, choice: int, felt: float, real: Optional[float]
                    max(-1.0, min(1.0, 25 * dv)), cause=cid)
     change = p.wellbeing() - before
     valence = max(-1.0, min(1.0, 25.0 * change))
+    judged = p.conscious.judge(c.text)
+    touched = p.beliefs.choice(p, judged, valence, c.text)          # what doing it taught him (beliefs.py)
+    regard = p.others.after_choice(p, F, c.text, sit)               # what the people in it now think of him (tom.py)
+    p.unconscious.take(age, sc.key, sc.domain, [n for n in regard] + ([] if not p.circle else
+                       [f.name for f in p.circle.friends if f.name in sit]), valence, 0.25 + 0.75 * abs(valence), sit)
+    law = p.drives.after_choice(p, F, sc.key, c.text, deltas)       # caught, a record, prison (drives.py)
+    if law:
+        p.note(f"{c.text}, and {law}", -0.7, 0.8, key="prison" if "prison" in law else "offence")
+    record(L, age, "choice", sc.key, f"{sit} -> {c.text}", list(regard), valence, touched, regard=regard)
     feeling = next((w for k, th, w in FEELING if (deltas.get(k, 0) < th if th < 0 else deltas.get(k, 0) > th)), "")
     names = [f.name for f in p.circle.friends if f.name in sit] if p.circle else []
     ep = L.mem.add(age, "scenario", sc.key, sc.domain, sit, names, valence, 0.25 + 0.75 * abs(valence), feeling,
