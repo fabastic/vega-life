@@ -33,6 +33,10 @@ from .hardships import Hardships
 from .economy import UNIVERSAL_CARE, Economy
 from .voice import in_voice
 from .surroundings import Surroundings
+from .beliefs import Beliefs
+from .tom import OtherMinds
+from .unconscious import Unconscious
+from .drives import Drives
 
 GROUPS = {
     "body": ["health", "inflammation", "microbiome", "autoimmune_risk", "methylation_risk", "telomere", "cardio",
