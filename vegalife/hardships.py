@@ -186,7 +186,8 @@ class Hardships:
         elif 14 <= y < 50:
             curve = 1.0 if 15 <= y < 26 else 0.3
             off = 0.0018 * curve * (0.2 + risky + poor + 0.6 * adhd + 0.4 * (s["schooling"] < 0.5 and s["employed"] < 0.5)) \
-                * (1.6 if F["sex"] >= 0.5 else 0.4) * (1 - 0.5 * p.conscious.moral_sense(p, F))
+                * (1.6 if F["sex"] >= 0.5 else 0.4) * (1 - 0.5 * p.conscious.moral_sense(p, F)) \
+                * (p.drives.pressure(p) if hasattr(p, "drives") else 1.0)   # needs, urges, grudge (drives.py)
             if r.random() < off:
                 caught = r.random() < 0.45
                 self._say(p, r.choice(["shoplifts with friends and gets caught" if caught else "shoplifts with friends",
