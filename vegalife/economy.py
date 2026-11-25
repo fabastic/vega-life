@@ -105,7 +105,7 @@ class Economy:
         pay_now = (0.22 + 0.17 * max(0, tier)) * pay + 0.04 * p.work.level + area
         tl = getattr(p, "timeline", None)                  # starting work in a recession (timeline.py)
         if tl is not None:
-            pay_now *= 1 - tl.scar(tl.born + p.age // 12)
+            pay_now *= (1 - tl.scar(tl.born + p.age // 12)) * (1 - tl.job_scar(p.age))
         return clip(pay_now)
 
     def layoff_mult(self, F: FactorSet) -> float:

@@ -31,6 +31,9 @@ EVENTS = [(1969, "people walk on the Moon; the whole world watches"),
           (2023, "AI that talks back arrives in everyone's pocket")]
 PANDEMIC = {2020, 2021}
 SCAR, SCAR_YEARS = 0.09, 9.0
+# Losing a job he had held for years: earnings about 25% lower soon after, still about 15% lower six years on
+# (Jacobson, LaLonde & Sullivan 1993, high-tenure displaced workers). Shorter tenure, smaller loss.
+JOBLOSS, JOBLOSS_YEARS = 0.25, 15.0
 
 
 def birth_year(F) -> int:
@@ -53,6 +56,8 @@ class Timeline:
         self.entered: Optional[int] = None      # the year he first joined the labour market
         self.entry_depth = 0.0                  # how deep the recession was then
         self.seen: List[int] = []               # years of EVENTS already lived
+        self.job_since: Optional[int] = None    # month he started his current job
+        self.losses: List[tuple] = []           # (month lost, depth) for each job lost
 
     def scar(self, year: int) -> float:
         """The share of pay lost this year from having started work in a recession."""
@@ -63,9 +68,21 @@ class Timeline:
         left = max(0.0, 1.0 - (year - self.entered) / fade)
         return SCAR * self.entry_depth * left * (1.0 + 0.5 * max(0.0, 0.5 - ses))
 
+    def lost_job(self, month: int) -> None:
+        """A layoff: the deeper the longer he had held the job (full depth from 6 years)."""
+        held = (month - self.job_since) / 12 if self.job_since is not None else 0.0
+        self.losses.append((month, JOBLOSS * min(1.0, held / 6.0)))
+        self.job_since = None
+
+    def job_scar(self, month: int) -> float:
+        """Share of pay still lost from earlier layoffs; fades linearly, the worst one counts."""
+        return max((d * max(0.0, 1 - (month - m) / 12 / JOBLOSS_YEARS) for m, d in self.losses), default=0.0)
+
     def step(self, p, F) -> List[dict]:
         y = year_of(F, p.age)
         out = []
+        if p.s["employed"] > 0.5 and self.job_since is None:
+            self.job_since = p.age
         if self.entered is None and p.s["employed"] > 0.5 and p.years >= 16:
             self.entered, self.entry_depth = y, recession(y)
             if self.entry_depth >= 0.5:

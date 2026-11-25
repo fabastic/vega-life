@@ -34,3 +34,16 @@ def test_he_lives_through_dated_world_events():
         seen += [h["text"] for h in p.happenings if h["key"] == "world"]
         p.happenings.clear()
     assert any("internet" in t for t in seen) and any("smartphones" in t for t in seen)
+
+
+def test_a_long_held_job_lost_costs_years_of_pay():
+    t = Timeline(fx.sample(1))
+    t.job_since = 0
+    t.lost_job(10 * 12)
+    assert abs(t.job_scar(10 * 12) - 0.25) < 1e-9
+    assert 0.12 < t.job_scar(16 * 12) < 0.2          # about 15% six years on (Jacobson et al. 1993)
+    assert t.job_scar(30 * 12) == 0.0
+    short = Timeline(fx.sample(1))
+    short.job_since = 0
+    short.lost_job(12)
+    assert short.job_scar(12) < 0.06
