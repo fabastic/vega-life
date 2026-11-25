@@ -143,6 +143,21 @@ class MentalHealth:
             return "I have so much energy, I barely sleep." if c == "bipolar" and self.mania else THOUGHT[c]
         return ""
 
+    def phq9(self, p) -> int:
+        """A PHQ-9-style screen (Kroenke, Spitzer & Williams 2001): nine symptoms, each 0-3 over the last two weeks,
+        read from his state. 10 or more is the usual cut-off for likely depression; about 8% of US adults score that
+        high at any time (NCHS Data Brief 303, NHANES 2013-2016)."""
+        s = p.s
+        low = 1 - s["mood"]
+        dep = "depression" in self.active
+        items = [low, low,                                                 # little interest; feeling down
+                 s.get("cortisol", 0.3), 1 - s["health"],                  # sleep; tiredness
+                 s["allostatic_load"], s["neuroticism"] * low,             # appetite; feeling a failure
+                 s["anxiety"], s["allostatic_load"] * low,                 # concentration; slowed or restless
+                 0.5 * low * dep + 0.5 * getattr(self, "self_harm", False)]   # thoughts of being better off dead
+        lift = 0.9 if dep else 0.0
+        return sum(min(3, int(3 * min(1.0, max(0.0, 1.6 * x - 0.55 + lift)) + 0.5)) for x in items)
+
     def to_json(self, month: int) -> dict:
         return {"autism": self.autism, "adhd": self.adhd, "dyslexia": getattr(self, "dyslexia", False),
                 "self_harm": getattr(self, "self_harm", False),
