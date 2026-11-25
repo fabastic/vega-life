@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-FIRST, LAST = 1950, 2010
+FIRST, LAST = 1940, 2010
 # (start, end) calendar years, end inclusive, and how deep (0..1, 1 = the 2008 Great Recession)
 RECESSIONS = [(1953, 1954, 0.4), (1957, 1958, 0.5), (1960, 1961, 0.3), (1969, 1970, 0.3), (1973, 1975, 0.7),
               (1980, 1982, 0.8), (1990, 1991, 0.4), (2001, 2001, 0.3), (2008, 2009, 1.0), (2020, 2020, 0.6)]
@@ -68,6 +68,7 @@ class Timeline:
         # deterministic from his factors, so it needs no random generator of its own
         self.drafted = F["sex"] >= 0.5 and a <= self.born <= b and (F["ses"] * 7.31 + F["birth_year"] * 3.7) % 1 < DRAFT_SHARE
         self.served_at: Optional[int] = None
+        self.was_employed = False
 
     def scar(self, year: int) -> float:
         """The share of pay lost this year from having started work in a recession."""
@@ -77,6 +78,11 @@ class Timeline:
         fade = SCAR_YEARS * (1.0 + 0.6 * max(0.0, 0.5 - ses))      # longer for the less advantaged
         left = max(0.0, 1.0 - (year - self.entered) / fade)
         return SCAR * self.entry_depth * left * (1.0 + 0.5 * max(0.0, 0.5 - ses))
+
+    def __setstate__(self, state: dict) -> None:
+        """A life saved by an earlier version of this module: fill in what it did not have yet."""
+        self.__dict__.update({"job_since": None, "losses": [], "drafted": False, "served_at": None,
+                              "was_employed": False, "ses": 0.5} | state)
 
     def lost_job(self, month: int) -> None:
         """A layoff: the deeper the longer he had held the job (full depth from 6 years)."""
@@ -94,8 +100,12 @@ class Timeline:
     def step(self, p, F) -> List[dict]:
         y = year_of(F, p.age)
         out = []
-        if p.s["employed"] > 0.5 and self.job_since is None:
+        working = p.s["employed"] > 0.5
+        if working and not self.was_employed:
             self.job_since = p.age
+        elif self.was_employed and not working and p.years < 65:
+            self.lost_job(p.age)                 # every way of losing work: layoff, prison, illness, burnout
+        self.was_employed = working
         if self.entered is None and p.s["employed"] > 0.5 and p.years >= 16:
             self.entered, self.entry_depth = y, recession(y)
             if self.entry_depth >= 0.5:
@@ -111,9 +121,9 @@ class Timeline:
             out.append({"text": "is drafted and sent to the war in Vietnam for a year", "valence": -0.7, "arousal": 0.9,
                         "who": [], "key": "war", "deltas": {}})
         for when, text in EVENTS:
-            if when == y and when not in self.seen and p.age % 12 == 0 and p.years >= 4:
+            if when == y and when not in self.seen and p.age % 12 == 0:
                 self.seen.append(when)
-                out.append({"text": f"{text} (he is {int(p.years)})", "valence": 0.0, "arousal": 0.5, "who": [],
+                out.append({"text": f"{text} (he is {int(p.years)})" if p.years >= 4 else f"{text}, too early for him to remember", "valence": 0.0, "arousal": 0.5, "who": [],
                             "key": "world", "deltas": {}})
         return out
 
