@@ -468,6 +468,7 @@ class Person:
             elif s["employed"] > 0.5 and r.random() < 0.004 * (1 + F["skill_obsolescence"] * (y > 36)) \
                     * (1.6 - 1.2 * F["workplace_security"]) * self.economy.layoff_mult(F):
                 s["employed"] = 0.0
+                self.timeline.lost_job(self.age)          # years of lower pay after (timeline.py)
                 self.note("loses his job", -0.7, 0.7, key="work")
         if y >= 19:
             spend = 0.004 + 0.003 * (1 - s["housing"] * 0.5)
