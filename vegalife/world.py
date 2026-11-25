@@ -38,6 +38,7 @@ from .tom import OtherMinds
 from .unconscious import Unconscious
 from .drives import Drives
 from .ace import Ace
+from .timeline import Timeline
 
 GROUPS = {
     "body": ["health", "inflammation", "microbiome", "autoimmune_risk", "methylation_risk", "telomere", "cardio",
@@ -172,6 +173,8 @@ class Person:
             self.unconscious = Unconscious(seed)                       # what shapes him unknown to him (1.3)
         if not hasattr(self, "drives"):
             self.drives = Drives(seed)                                 # needs, urges, wants (1.5)
+        if not hasattr(self, "timeline"):
+            self.timeline = Timeline(F)                                # the world's dated events (round 3 C3)
         if not hasattr(self, "ace"):
             self.ace = Ace(F, seed, self.age)                                  # adverse childhood experiences (round 3 C5)
         if not hasattr(self, "residence"):
@@ -518,7 +521,7 @@ class Person:
                   + self.mind.step(self, F) + self.online.step(self, F) + self.prejudice.step(self, F)
                   + self.seasons.step(self, F) + self.illness.step(self, F) + self.hormones.step(self, F)
                   + self.hardships.step(self, F) + self.economy.step(self, F)
-                  + self.surroundings.step(self, F)):
+                  + self.surroundings.step(self, F) + self.timeline.step(self, F)):
             self.note(h["text"], h["valence"], h["arousal"], who=h["who"], key=h["key"], deltas=h["deltas"])
         self.ace.step(self)                    # adverse childhood experiences, after this month's family events (ace.py)
         bright = self.chem.step(self, F, self.family, self.work)    # the month's chemistry, and its best moment
