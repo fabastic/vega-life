@@ -56,6 +56,9 @@ TARGETS = {
                           "(Hughes et al. 2017 meta-analysis; Felitti et al. 1998 about 4.6)"),
     "phq9_10plus": (0.05, 0.12, "share of adult years scoring 10+", "8.1% of US adults screen positive on the "
                     "PHQ-9 (NCHS Data Brief 303, NHANES 2013-2016)"),
+    "young_least_happy": (-0.4, -0.02, "good-mood share in the 20s minus the 50s", "since about 2018 the young are "
+                          "the least happy age group; the old midlife low has faded (Blanchflower, Bryson & Xu 2024, "
+                          "NBER w32337)"),
     "death_stroke": (0.04, 0.08, "share of deaths", "about 5% (CDC 2022)"),
 }
 
@@ -70,6 +73,7 @@ def one(seed: int, max_years: int = 105) -> dict:
     partnered = myopic40 = False
     old = frail = home = 0
     phq = [0, 0]
+    byage = collections.defaultdict(lambda: [0, 0])
     while p.alive and p.age < max_years * 12:
         p.step_month(F)
         ch.step(p, F)
@@ -80,6 +84,8 @@ def one(seed: int, max_years: int = 105) -> dict:
         if y >= 18:
             adult += 1
             good += p.s["mood"] > 0.5
+            byage[int(y // 10) * 10][0] += p.s["mood"] > 0.5
+            byage[int(y // 10) * 10][1] += 1
             dec = int(y // 10) * 10
             stress[dec][0] += p.economy.stress > 0.5
             stress[dec][1] += 1
@@ -102,7 +108,7 @@ def one(seed: int, max_years: int = 105) -> dict:
         "emigrated": bool(p.economy.emigrated), "dyslexia": bool(getattr(p.mind, "dyslexia", False)),
         "myopic40": myopic40, "old": old, "frail": frail, "home": home,
         "stress": {k: v for k, v in stress.items()},
-        "ace": p.ace.score if p.years >= 18 else None, "depressed": bool(p.mind.had.get("depression")), "phq": phq,
+        "ace": p.ace.score if p.years >= 18 else None, "depressed": bool(p.mind.had.get("depression")), "phq": phq, "byage": dict(byage),
     }
 
 
@@ -123,6 +129,10 @@ def summarise(rows: list) -> dict:
         b = sum(r["stress"].get(dec, [0, 0])[1] for r in rows)
         return a / max(1, b)
 
+    def goodat(dec):
+        a = sum(r["byage"].get(dec, [0, 0])[0] for r in rows)
+        return a / max(1, sum(r["byage"].get(dec, [0, 0])[1] for r in rows))
+
     got = {
         "life_expectancy": st.mean(r["years"] for r in rows),
         "good_mood_months": sum(r["good"] for r in rows) / max(1, sum(r["adult"] for r in rows)),
@@ -140,6 +150,7 @@ def summarise(rows: list) -> dict:
         "ace_4plus": sum(1 for r in rows if (r["ace"] or 0) >= 4) / max(1, sum(r["ace"] is not None for r in rows)),
         "ace_depression_or": odds_ratio(share(rows, "depressed", lambda r: (r["ace"] or 0) >= 4)[0],
                                         share(rows, "depressed", lambda r: r["ace"] == 0)[0]),
+        "young_least_happy": goodat(20) - goodat(50),
         "phq9_10plus": sum(r["phq"][0] for r in rows) / max(1, sum(r["phq"][1] for r in rows)),
         "death_cancer": cause("cancer", "leukaemia", "lymphoma", "tumour", "melanoma"),
         "death_heart": cause("heart"),
