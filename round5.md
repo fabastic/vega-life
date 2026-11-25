@@ -6,6 +6,14 @@ Status on 2026-11-25:
   - C3 world timeline (`timeline.py`): NBER recessions, a pay scar for starting work in a recession (Oreopoulos 2012), and dated world events.
   - C4 parenting styles (`world.py` `parenting_style`): warmth × the new `parent_strictness` factor gives Baumrind's four styles.
   - C5 ACE score (`ace.py`): eight BRFSS categories, calibrated to 64% with one or more and 17% with four or more (Swedo 2023). It raises adult depression and drinking risk. The population report checks all three.
+- **Round 5 done (2026-11-25, later the same day):**
+  - A1 job-loss pay scar (`timeline.py` `lost_job`): about 25% lower pay, about 15% six years on (Jacobson et al. 1993).
+  - A3 Vietnam-era draft for men born 1944-52, about a quarter of them, with a veterans' pay gap (Angrist 1990).
+  - C1 hiring bias now also applies when work turns up without a scenario (`world.py`); it was already in `career.py` and `economy.py`.
+  - C4 pandemic 2020-21: learning loss of about a third of a school year, more for poorer children (Betthäuser et al. 2023), and more loneliness.
+  - B5 a PHQ-9-style depression screen (`mental.py` `phq9`); the population report checks that about 8% of adult years score 10 or more (NHANES 2013-2016).
+  - B1 replaced by a check that the young are the least happy age group, since the classic midlife low has faded (Blanchflower, Bryson & Xu 2024; citation unverified).
+  - ACE, recession and war events now move his beliefs and land in the story lanes; the life page shows his childhood and his times.
 - **Round 3 still open:** A1 a real laptop_xl life (GPU), A2 hybrid objective, A3 graded talk practice, A5 forgetting, B1–B3 looking inside, C2 poverty trap slope, C6–C8, D1–D3, E1–E5.
 - **Round 4** (a whole human in a whole society) has not started; its plan is in `round 4(FINAL ROUND).md`.
 
