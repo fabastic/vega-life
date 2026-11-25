@@ -466,9 +466,8 @@ class Person:
                 s["employed"] = 1.0
                 self.note("finds work", 0.5, 0.5, key="work")
             elif s["employed"] > 0.5 and r.random() < 0.004 * (1 + F["skill_obsolescence"] * (y > 36)) \
-                    * (1.6 - 1.2 * F["workplace_security"]) * self.economy.layoff_mult(F):
+                    * (1.6 - 1.2 * F["workplace_security"]) * self.economy.layoff_mult(F, self.age):
                 s["employed"] = 0.0
-                self.timeline.lost_job(self.age)          # years of lower pay after (timeline.py)
                 self.note("loses his job", -0.7, 0.7, key="work")
         if y >= 19:
             spend = 0.004 + 0.003 * (1 - s["housing"] * 0.5)
@@ -578,10 +577,10 @@ class Person:
         anxiety and less autonomy; permissive with weaker self-control and more risk-taking; neglectful with the worst
         of both. The sizes (about 0.1 over a childhood) are a modelling choice, not taken from the paper."""
         s, st = self.s, self.parenting_style(F)
-        pull = {"authoritative": {"conscientiousness": 0.0004, "anxiety": -0.0006, "autonomy": 0.0004},
-                "authoritarian": {"anxiety": 0.0008, "autonomy": -0.0006, "household_friction": 0.0004},
+        pull = {"authoritative": {"conscientiousness": 0.0004, "anxiety": -0.0008, "autonomy": 0.0004},
+                "authoritarian": {"anxiety": 0.0005, "autonomy": -0.0006, "household_friction": 0.0004},
                 "permissive": {"conscientiousness": -0.0005, "peer_risk": 0.0005},
-                "neglectful": {"anxiety": 0.0006, "conscientiousness": -0.0005, "peer_risk": 0.0006,
+                "neglectful": {"anxiety": 0.0004, "conscientiousness": -0.0005, "peer_risk": 0.0006,
                                "attachment": -0.0005}}[st]
         for k, d in pull.items():
             if k in s:
