@@ -30,6 +30,9 @@ EVENTS = [(1969, "people walk on the Moon; the whole world watches"),
           (2020, "a pandemic shuts the world indoors"),
           (2023, "AI that talks back arrives in everyone's pocket")]
 PANDEMIC = {2020, 2021}
+# Pandemic school closures: children lost about 35% of a school year's learning (Betthäuser, Bach-Mortensen & Engzell
+# 2023, meta-analysis of 42 studies, d about 0.14), more in poorer families; and everyone was more alone.
+LEARNING_LOSS = 0.035                    # of "academic" (0..1), spread over the two pandemic years
 SCAR, SCAR_YEARS = 0.09, 9.0
 # Losing a job he had held for years: earnings about 25% lower soon after, still about 15% lower six years on
 # (Jacobson, LaLonde & Sullivan 1993, high-tenure displaced workers). Shorter tenure, smaller loss.
@@ -88,6 +91,11 @@ class Timeline:
             if self.entry_depth >= 0.5:
                 out.append({"text": "starts work in the middle of a recession; good jobs are scarce",
                             "valence": -0.3, "arousal": 0.4, "who": [], "key": "recession", "deltas": {}})
+        if y in PANDEMIC:
+            s = p.s
+            if 5 <= p.years < 18:
+                s["academic"] = max(0.0, s["academic"] - LEARNING_LOSS / 24 * (1.0 + max(0.0, 0.5 - self.ses)))
+            s["loneliness"] = min(1.0, s["loneliness"] + 0.002)
         for when, text in EVENTS:
             if when == y and when not in self.seen and p.age % 12 == 0 and p.years >= 4:
                 self.seen.append(when)
