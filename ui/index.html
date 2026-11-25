@@ -240,6 +240,7 @@ h3.sect{font:600 15px var(--sans);margin:28px 0 10px}h3.sect span{font-weight:40
       <canvas id="cTom" class="chart lab" style="height:110px;margin-top:10px"></canvas><div class="legend lab"><span class="key"><i style="background:var(--acc)"></i>theory-of-mind pass rate</span></div></div>
     <div class="card"><h2>Beneath awareness</h2><div id="unconLive"><span class="muted">(this life predates the unconscious)</span></div></div>
     <div class="card"><h2>Needs and urges</h2><div id="drivesLive"><span class="muted">(this life predates drives)</span></div></div>
+    <div class="card"><h2>His childhood and his times</h2><div id="childLive"><span class="muted">(this life predates the childhood record)</span></div></div>
   </div>
   <div class="grid" style="margin-top:14px">
     <div class="card"><h2>His relationships</h2><div id="bondsLive"><span class="muted">(this life predates relationship dynamics)</span></div></div>
@@ -688,7 +689,7 @@ setInterval(popUpdate,15000);setTimeout(popUpdate,1200);
 setTimeout(()=>{const fill=()=>{if(!CAT){setTimeout(fill,500);return}
   const fs=Array.isArray(CAT.factors)?CAT.factors:Object.values(CAT.factors);
   $('wiFactor').innerHTML=fs.map(f=>`<option value="${esc(f.key||f.name)}">${esc(f.label)}</option>`).join('');wiShow()};fill()},0);
-const TABMAP={life:['familyLive','bondsLive','seasonLive','friendsLive','log','choices','memLive','story','nowLive'],mind:['beliefsLive','othersLive','unconLive','drivesLive','mindLive','mentalLive','biasLive','innerLive'],
+const TABMAP={life:['familyLive','bondsLive','seasonLive','friendsLive','log','choices','memLive','story','nowLive'],mind:['beliefsLive','othersLive','unconLive','drivesLive','childLive','mindLive','mentalLive','biasLive','innerLive'],
   body:['chemLive','healthLive','hormLive','hardLive'],world:['workLive','econLive','schoolingLive','schoolLive','phoneLive'],talk:['chatLog'],
   lab:['netViz','cLoss','cRew','heard','babble','items','stateCards','ftable','expLive','popLive']};
 function tabOf(card){for(const [t,ids] of Object.entries(TABMAP))for(const id of ids){if(card.id===id||card.querySelector('#'+id))return t}return card.classList.contains('lab')?'lab':'life'}
@@ -765,6 +766,12 @@ function innerLifeUpdate(L){
     `<div class="stat"><div><b>${(+D.pressure).toFixed(2)}</b><span>pressure</span></div><div><b>${Array.isArray(D.offences)?D.offences.length:(D.offences??0)}</b><span>offences</span></div>${D.want?`<div><b>${esc(D.want)}</b><span>wants most</span></div>`:''}</div>`+
     Object.entries(D.needs||{}).map(([k,v])=>meterRow(k.replace(/_/g,' '),v)).join('')+Object.entries(D.urges||{}).map(([k,v])=>meterRow(k,v,'',  'var(--bad)')).join('')+
     ((D.recent||[]).length?`<div class="log" style="margin-top:8px">${D.recent.map(r=>Array.isArray(r)?`<div><span class="age">${(+r[0]).toFixed(1)}y</span><span>${esc(r[2])}: ${esc(r[3])}</span></div>`:`<div><span>${esc(r)}</span></div>`).join('')}</div>`:'')}
+  const C=L.childhood,W=L.world;if(C||W){const st={authoritative:'warm and firm',authoritarian:'strict, not warm',permissive:'warm, few rules',neglectful:'neither warm nor firm'};
+    $('childLive').innerHTML=(C?`<div class="stat"><div><b>${C.score}</b><span>adverse childhood experiences</span></div><div><b>${esc(C.style||'')}</b><span>${esc(st[C.style]||'parenting')}</span></div></div>`+
+      (C.had&&C.had.length?`<p style="margin:10px 0 0">${C.had.map(k=>`<span class="pill">${esc(k.replace(/_/g,' '))}</span>`).join(' ')}</p>`:'<p class="muted" style="margin:10px 0 0">none so far</p>')+
+      (C.partial?'<p class="muted" style="font-size:12px">this life began before the record, so its early years are not counted</p>':''):'')+
+    (W?`<p style="margin:12px 0 0">Born ${W.born}; it is now ${W.year}${W.recession?` and the economy is <b class="neg">in recession</b>`:''}.${W.entered_work?` He started work in ${W.entered_work}${W.entry_recession?', in a recession':''}.`:''}</p>`:'')}
+
 }
 
 init();
