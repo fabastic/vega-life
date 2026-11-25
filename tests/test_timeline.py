@@ -74,3 +74,11 @@ def test_a_child_in_the_pandemic_loses_some_learning():
     hit = sum(academic_at_13(s, 2008) for s in range(12))
     spared = sum(academic_at_13(s, 1990) for s in range(12))
     assert hit < spared
+
+
+def test_about_a_quarter_of_men_born_1944_to_1952_are_drafted():
+    men = [Timeline(fx.sample(s, {"sex": 1.0, "birth_year": 0.0})) for s in range(400)]
+    share = sum(t.drafted for t in men) / len(men)
+    assert 0.15 < share < 0.35, share
+    assert not any(Timeline(fx.sample(s, {"sex": 0.0, "birth_year": 0.0})).drafted for s in range(50))
+    assert not any(Timeline(fx.sample(s, {"sex": 1.0, "birth_year": 0.5})).drafted for s in range(50))
