@@ -223,6 +223,8 @@ class MentalHealth:
                         + 1.2 * getattr(getattr(p, "hardships", None), "cannabis", 0.0) * (y < 25),
                         "bipolar": 1.2 * F["genetic_risk"], "OCD": 0.8 * (s["neuroticism"] - 0.5)}.get(c, 0.0)
                 risk += getattr(getattr(p, "surroundings", None), "mental_risk", lambda: {})().get(c, 0.0)
+                if y >= 18 and getattr(p, "ace", None) is not None:
+                    risk += p.ace.hazard(c)           # adverse childhood experiences carry forward (ace.py)
                 h = (recur if self.had.get(c) else base) * w * math.exp(risk)
             if r.random() < h:
                 self.active[c] = m
