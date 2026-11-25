@@ -47,3 +47,17 @@ def test_a_long_held_job_lost_costs_years_of_pay():
     short.job_since = 0
     short.lost_job(12)
     assert short.job_scar(12) < 0.06
+
+
+def test_hiring_bias_slows_finding_work():
+    def months_out(minority):
+        total = 0
+        for seed in range(30):
+            F = fx.sample(seed, {"minority_status": minority, "migrant_background": 0.0, "birth_year": 0.6})
+            p = Person(F, seed, Circle(F, seed))
+            while p.alive and p.age < 30 * 12:
+                p.step_month(F)
+                p.happenings.clear()
+                total += 22 <= p.years and p.s["employed"] < 0.5 and p.s["schooling"] < 0.5
+        return total
+    assert months_out(1.0) > months_out(0.0)
