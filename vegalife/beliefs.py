@@ -61,6 +61,10 @@ EVIDENCE: Dict[str, List[Tuple[str, float]]] = {
     "release": [("failure_recoverable", -0.6)], "debt": [("world_fair", 0.6), ("future_good", 0.6)],
     "consequence": [("effort_pays", 0.5)], "vigilante": [("violence_works", -1.0), ("authority_just", 0.4)],
     "justice": [("authority_just", 1.0), ("world_fair", 0.6)],
+    # abuse and chaos at home teach that people, even close ones, are not safe (ace.py)
+    "ace": [("people_trustworthy", 1.0), ("self_worth", 0.8), ("world_fair", 0.6), ("violence_works", -0.3)],
+    "recession": [("effort_pays", 0.6), ("world_fair", 0.6), ("future_good", 0.6)],          # timeline.py
+    "war": [("world_fair", 1.0), ("authority_just", 0.6), ("violence_works", -0.3)],
 }
 
 # Which source an event key comes from, for the belief's origin.
