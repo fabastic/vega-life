@@ -37,6 +37,9 @@ SCAR, SCAR_YEARS = 0.09, 9.0
 # Losing a job he had held for years: earnings about 25% lower soon after, still about 15% lower six years on
 # (Jacobson, LaLonde & Sullivan 1993, high-tenure displaced workers). Shorter tenure, smaller loss.
 JOBLOSS, JOBLOSS_YEARS = 0.25, 15.0
+# The Vietnam-era draft: men born 1944-1952 reached 19 in 1963-1971. About a quarter of them served; white veterans
+# earned about 15% less a decade later (Angrist 1990, draft-lottery estimates), the loss fading by middle age.
+DRAFT_BORN, DRAFT_SHARE, DRAFT_PAY, DRAFT_YEARS = (1944, 1952), 0.25, 0.15, 20.0
 
 
 def birth_year(F) -> int:
@@ -61,6 +64,10 @@ class Timeline:
         self.seen: List[int] = []               # years of EVENTS already lived
         self.job_since: Optional[int] = None    # month he started his current job
         self.losses: List[tuple] = []           # (month lost, depth) for each job lost
+        a, b = DRAFT_BORN
+        # deterministic from his factors, so it needs no random generator of its own
+        self.drafted = F["sex"] >= 0.5 and a <= self.born <= b and (F["ses"] * 7.31 + F["birth_year"] * 3.7) % 1 < DRAFT_SHARE
+        self.served_at: Optional[int] = None
 
     def scar(self, year: int) -> float:
         """The share of pay lost this year from having started work in a recession."""
@@ -78,7 +85,10 @@ class Timeline:
         self.job_since = None
 
     def job_scar(self, month: int) -> float:
-        """Share of pay still lost from earlier layoffs; fades linearly, the worst one counts."""
+        """Share of pay still lost from earlier layoffs (and from war service); fades linearly, the worst one counts."""
+        if self.served_at is not None:
+            war = DRAFT_PAY * max(0.0, 1 - (month - self.served_at) / 12 / DRAFT_YEARS)
+            return max([war] + [d * max(0.0, 1 - (month - m) / 12 / JOBLOSS_YEARS) for m, d in self.losses])
         return max((d * max(0.0, 1 - (month - m) / 12 / JOBLOSS_YEARS) for m, d in self.losses), default=0.0)
 
     def step(self, p, F) -> List[dict]:
@@ -96,6 +106,10 @@ class Timeline:
             if 5 <= p.years < 18:
                 s["academic"] = max(0.0, s["academic"] - LEARNING_LOSS / 24 * (1.0 + max(0.0, 0.5 - self.ses)))
             s["loneliness"] = min(1.0, s["loneliness"] + 0.002)
+        if self.drafted and self.served_at is None and p.years >= 19:
+            self.served_at = p.age
+            out.append({"text": "is drafted and sent to the war in Vietnam for a year", "valence": -0.7, "arousal": 0.9,
+                        "who": [], "key": "war", "deltas": {}})
         for when, text in EVENTS:
             if when == y and when not in self.seen and p.age % 12 == 0 and p.years >= 4:
                 self.seen.append(when)
@@ -106,4 +120,5 @@ class Timeline:
     def to_json(self, F, age_months: int) -> dict:
         y = year_of(F, age_months)
         return {"born": self.born, "year": y, "recession": recession(y), "entered_work": self.entered,
-                "entry_recession": self.entry_depth}
+                "entry_recession": self.entry_depth,
+                "served": self.served_at is not None}
