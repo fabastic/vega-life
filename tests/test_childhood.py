@@ -59,3 +59,12 @@ def test_every_ace_delta_is_a_real_state():
 def test_a_resumed_life_does_not_replay_its_childhood():
     a = Ace(fx.sample(3, {"ses": 0.05, "caregiver_warmth": 0.1}), 3, start_month=20 * 12)
     assert a.partial and not a.plan
+
+
+def test_depression_screen_is_in_range_and_rises_when_depressed():
+    p, _ = grow(1, years=30)
+    base = p.mind.phq9(p)
+    assert 0 <= base <= 27
+    p.mind.active["depression"] = p.age
+    p.s["mood"] = 0.1
+    assert p.mind.phq9(p) >= 10 > base or p.mind.phq9(p) > base
