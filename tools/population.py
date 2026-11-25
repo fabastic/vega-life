@@ -22,6 +22,7 @@ from vegalife import factors as fx           # noqa: E402
 from vegalife.character import Character    # noqa: E402
 from vegalife.people import Circle          # noqa: E402
 from vegalife.world import Person           # noqa: E402
+from vegalife.ace import odds_ratio         # noqa: E402
 
 OUT = ROOT / "runs" / "_population"
 
@@ -48,6 +49,11 @@ TARGETS = {
     "death_cancer": (0.17, 0.24, "share of deaths", "about 21% (CDC 2022)"),
     "death_heart": (0.18, 0.25, "share of deaths", "21-23%, heart attacks included (CDC 2019-2022)"),
     "death_dementia": (0.04, 0.09, "share of deaths", "Alzheimer's plus other dementia about 6% as underlying cause (CDC)"),
+    "ace_any": (0.58, 0.70, "share of lives reaching 18", "63.9% of US adults report at least one ACE (BRFSS "
+                "2011-2020, Swedo et al. 2023)"),
+    "ace_4plus": (0.13, 0.21, "share of lives reaching 18", "17.3% report four or more ACEs (Swedo et al. 2023)"),
+    "ace_depression_or": (2.5, 6.5, "odds ratio, ever depressed, 4+ ACEs vs none", "OR about 4.4 for depression "
+                          "(Hughes et al. 2017 meta-analysis; Felitti et al. 1998 about 4.6)"),
     "death_stroke": (0.04, 0.08, "share of deaths", "about 5% (CDC 2022)"),
 }
 
@@ -90,6 +96,7 @@ def one(seed: int, max_years: int = 105) -> dict:
         "emigrated": bool(p.economy.emigrated), "dyslexia": bool(getattr(p.mind, "dyslexia", False)),
         "myopic40": myopic40, "old": old, "frail": frail, "home": home,
         "stress": {k: v for k, v in stress.items()},
+        "ace": p.ace.score if p.years >= 18 else None, "depressed": bool(p.mind.had.get("depression")),
     }
 
 
@@ -123,6 +130,10 @@ def summarise(rows: list) -> dict:
         "care_home_65plus": sum(r["home"] for r in rows) / max(1, sum(r["old"] for r in rows)),
         "money_stress_20s": stress(20),
         "money_stress_60s": stress(60),
+        "ace_any": share([r for r in rows if r["ace"] is not None], "ace", lambda r: True)[0],
+        "ace_4plus": sum(1 for r in rows if (r["ace"] or 0) >= 4) / max(1, sum(r["ace"] is not None for r in rows)),
+        "ace_depression_or": odds_ratio(share(rows, "depressed", lambda r: (r["ace"] or 0) >= 4)[0],
+                                        share(rows, "depressed", lambda r: r["ace"] == 0)[0]),
         "death_cancer": cause("cancer", "leukaemia", "lymphoma", "tumour", "melanoma"),
         "death_heart": cause("heart"),
         "death_dementia": cause("dementia", "alzheimer"),
