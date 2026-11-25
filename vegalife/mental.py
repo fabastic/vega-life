@@ -44,7 +44,9 @@ from .factors import FactorSet
 # condition: (base first-onset hazard per month, onset window (from, peak start, peak end, to), chance an episode
 # ends each month untreated, treated, death-rate multiplier while active, recurrence hazard after the first)
 EPISODIC: Dict[str, tuple] = {
-    "depression": (0.000045, (11, 15, 35, 90), 0.11, 0.2, 1.5, 0.0012),
+    # base hazard retuned 2026-11-25 (0.000045 -> 0.000034) after ACEs, parenting, recessions and job-loss scars
+    # added their own risk: lifetime depression back to about 30% (test_world_more, 240 lives)
+    "depression": (0.000034, (11, 15, 35, 90), 0.11, 0.2, 1.5, 0.0012),
     "anxiety": (0.00016, (6, 10, 30, 90), 0.035, 0.09, 1.1, 0.0008),
     "PTSD": (0.0, (4, 4, 90, 95), 0.04, 0.1, 1.3, 0.0),
     "OCD": (0.00005, (8, 12, 25, 50), 0.02, 0.06, 1.1, 0.002),
@@ -238,8 +240,8 @@ class MentalHealth:
                         + 1.2 * getattr(getattr(p, "hardships", None), "cannabis", 0.0) * (y < 25),
                         "bipolar": 1.2 * F["genetic_risk"], "OCD": 0.8 * (s["neuroticism"] - 0.5)}.get(c, 0.0)
                 risk += getattr(getattr(p, "surroundings", None), "mental_risk", lambda: {})().get(c, 0.0)
-                if y >= 18 and getattr(p, "ace", None) is not None:
-                    risk += p.ace.hazard(c)           # adverse childhood experiences carry forward (ace.py)
+                if y >= 12 and getattr(p, "ace", None) is not None:
+                    risk += p.ace.hazard(c)           # adverse childhood experiences so far carry forward (ace.py)
                 h = (recur if self.had.get(c) else base) * w * math.exp(risk)
             if r.random() < h:
                 self.active[c] = m
