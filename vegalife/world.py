@@ -37,6 +37,7 @@ from .beliefs import Beliefs
 from .tom import OtherMinds
 from .unconscious import Unconscious
 from .drives import Drives
+from .ace import Ace
 
 GROUPS = {
     "body": ["health", "inflammation", "microbiome", "autoimmune_risk", "methylation_risk", "telomere", "cardio",
@@ -171,6 +172,8 @@ class Person:
             self.unconscious = Unconscious(seed)                       # what shapes him unknown to him (1.3)
         if not hasattr(self, "drives"):
             self.drives = Drives(seed)                                 # needs, urges, wants (1.5)
+        if not hasattr(self, "ace"):
+            self.ace = Ace(F, seed, self.age)                                  # adverse childhood experiences (round 3 C5)
         if not hasattr(self, "residence"):
             self.residence = "home"                                    # or "care_facility" (seasons.py)
 
@@ -264,7 +267,10 @@ class Person:
             s["caregiver_anxiety"] = clip(0.15 + 0.6 * F["smart_nursery"] * (1 if y < 3 else 0.4)
                                           + 0.3 * F["household_stress"])
             s["anxiety"] = toward(s["anxiety"], 0.5 * s["caregiver_anxiety"] + 0.4 * (1 - s["attachment"]), 0.04)
+            self._parenting(F)
         else:
+            if y < 18:
+                self._parenting(F)
             s["caregiver_attention"] = toward(s["caregiver_attention"], 0.0, 0.02)
             # From adolescence his anxiety is his own: driven by stress load, temperament, support and conflict at
             # home, not frozen at whatever childhood left.
@@ -514,6 +520,7 @@ class Person:
                   + self.hardships.step(self, F) + self.economy.step(self, F)
                   + self.surroundings.step(self, F)):
             self.note(h["text"], h["valence"], h["arousal"], who=h["who"], key=h["key"], deltas=h["deltas"])
+        self.ace.step(self)                    # adverse childhood experiences, after this month's family events (ace.py)
         bright = self.chem.step(self, F, self.family, self.work)    # the month's chemistry, and its best moment
         if bright:
             self.note(bright["text"], bright["valence"], bright["arousal"], who=bright["who"], key="joy",
@@ -555,6 +562,26 @@ class Person:
             "financial_paranoia": 0.15, "social_isolation": 0.2, "loneliness": 0.2, "school_belonging": 0.2,
             "identity_crisis": 0.1, "autonomy": 0.1,
             "allostatic_load": 0.1, "motor": 0.1, "cardio": 0.1, "resilience": 0.05}
+
+    def parenting_style(self, F: FactorSet) -> str:
+        """Baumrind's four styles from warmth and strictness (Maccoby & Martin 1983)."""
+        warm, firm = F["caregiver_warmth"] >= 0.62, F["parent_strictness"] >= 0.45
+        return {(1, 1): "authoritative", (0, 1): "authoritarian", (1, 0): "permissive", (0, 0): "neglectful"}[(warm, firm)]
+
+    def _parenting(self, F: FactorSet) -> None:
+        """A small monthly pull from how he is raised, in the direction Pinquart & Kauser (2018, 428 studies) found
+        across regions: authoritative goes with fewer internalising and externalising problems; authoritarian with more
+        anxiety and less autonomy; permissive with weaker self-control and more risk-taking; neglectful with the worst
+        of both. The sizes (about 0.1 over a childhood) are a modelling choice, not taken from the paper."""
+        s, st = self.s, self.parenting_style(F)
+        pull = {"authoritative": {"conscientiousness": 0.0004, "anxiety": -0.0006, "autonomy": 0.0004},
+                "authoritarian": {"anxiety": 0.0008, "autonomy": -0.0006, "household_friction": 0.0004},
+                "permissive": {"conscientiousness": -0.0005, "peer_risk": 0.0005},
+                "neglectful": {"anxiety": 0.0006, "conscientiousness": -0.0005, "peer_risk": 0.0006,
+                               "attachment": -0.0005}}[st]
+        for k, d in pull.items():
+            if k in s:
+                s[k] = clip(s[k] + d)
 
     def apply(self, deltas: Dict[str, float], fades: bool = False) -> None:
         """Changes his state. fades=True for a lived choice: its effect on fast-moving states wears off over months."""
