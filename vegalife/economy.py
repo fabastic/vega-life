@@ -108,11 +108,13 @@ class Economy:
             pay_now *= (1 - tl.scar(tl.born + p.age // 12)) * (1 - tl.job_scar(p.age))
         return clip(pay_now)
 
-    def layoff_mult(self, F: FactorSet) -> float:
+    def layoff_mult(self, F: FactorSet, age: int = 0) -> float:
         if self.field is None:
             return 1.0
         from .timeline import recession, year_of
-        boom_bust = 1.0 + 1.2 * recession(year_of(F, getattr(self, "age_now", 0)))   # layoffs rise in a recession (NBER dates)
+        # layoffs rise in a recession (NBER dates); divided by the average over 1953-2020 (recession depth averages
+        # about 0.165), so the calibrated layoff rate stays the long-run mean and only its timing moves
+        boom_bust = (1.0 + 1.2 * recession(year_of(F, age))) / 1.2
         return (1.0 + FIELDS[self.field][1] * F["ai_entry_automation"] - 0.08 * (self.tier or 0)) * boom_bust
 
     def burnout_mult(self) -> float:
@@ -137,7 +139,6 @@ class Economy:
     # ------------------------------------------------------------------ the month
     def step(self, p, F: FactorSet) -> List[dict]:
         r, s, y, m = self.rng, p.s, p.years, p.age
-        self.age_now = m
         out: List[dict] = []
         employed = s["employed"] > 0.5
         # --- an occupation when work begins ------------------------------------------------------------------------
