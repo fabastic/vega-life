@@ -36,6 +36,7 @@ from . import factors as fx
 from . import growth
 from .model import BOS, Mind, Shape, answer_weights, decode, encode, lm_loss
 from .rlvr import grpo, parse_choice, score_problem, score_scenario
+from .arena import probe_scenario
 from . import brainmap as bmod
 from .brainmap import BrainMap
 from .character import Character, learning_plasticity
@@ -211,6 +212,7 @@ class Life:
         self.babble = ""
         self.heard = ""
         self.interventions_seen = 0
+        self.probes = []                                    # arena probes waiting to be faced this month (arena.py)
         self.started = time.time()
         self.events_f = open(run_dir / "events.jsonl", "a", encoding="utf-8")
         self.timeline_f = open(run_dir / "timeline.jsonl", "a", encoding="utf-8")   # every happening, by lane (story.py)
@@ -700,9 +702,26 @@ class Life:
             return False
         if path.exists():
             lines = path.read_text(encoding="utf-8").splitlines()
+            done = self.interventions_seen
             for line in lines[self.interventions_seen:]:
                 try:
+                    at = int(json.loads(line).get("at_m", 0))
+                except (ValueError, AttributeError, TypeError):
+                    at = 0
+                if at > self.p.age:                         # timed (arena.py): lines are in time order, so wait
+                    break
+                done += 1
+                try:
                     it = json.loads(line)
+                    if "probe" in it:                       # a situation put to him this month (arena.py)
+                        self.probes.append(it["probe"])
+                        self.say(f"intervention: probe {it['probe'].get('name', '')}")
+                        continue
+                    if "letter" in it:                      # words that reach him, through letters.jsonl
+                        with open(self.dir / "letters.jsonl", "a", encoding="utf-8") as lf:
+                            lf.write(json.dumps(it["letter"]) + "
+")
+                        continue
                     if "state" in it:                       # an experiment sets part of his state directly
                         for k, v in it["state"].items():
                             self.p.s[k] = max(0.0, min(1.0, float(v)))
@@ -727,7 +746,7 @@ class Life:
                     self.say(f"intervention: {fx.ALL[it['key']].label} = {float(it['value']):.2f}")
                 except (ValueError, KeyError) as e:
                     self.say(f"ignored intervention {line!r}: {e}")
-            self.interventions_seen = len(lines)
+            self.interventions_seen = done
         return True
 
     def read_letters(self) -> list:
@@ -778,6 +797,8 @@ class Life:
             t = self.p.others.task(self.p)
             if t is not None:
                 items.append(t)
+        items += [probe_scenario(x) for x in self.probes]
+        self.probes.clear()
         for item in items:
             rec = self.face(item)
             rewards.append(rec["lived_reward"])
@@ -834,6 +855,8 @@ class Life:
             "dreams": list(self.dreams)[-8:], "ablate": sorted(self.ablate),
             "beliefs": self.p.beliefs.to_json(), "others": self.p.others.to_json(),
             "unconscious": self.p.unconscious.to_json(), "drives": self.p.drives.to_json(self.p),
+            "childhood": dict(self.p.ace.to_json(), style=self.p.parenting_style(self.F)),
+            "world": self.p.timeline.to_json(self.F, self.p.age),
             "self_knowledge": self.probe.last,
             "residence": getattr(self.p, "residence", "home"),
             "memory": self.mem.summary(self.p.age),
