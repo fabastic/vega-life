@@ -59,6 +59,9 @@ FAMILY: List[Factor] = [
            "How rich and varied the language he hears is, and how much reading there is at home.", 0.5, 0.22),
     Factor("caregiver_warmth", "family", "background", "Caregiver warmth",
            "How responsive the people raising him are when they are paying attention.", 0.65, 0.18),
+    Factor("parent_strictness", "family", "background", "Parents' strictness",
+           "How firmly his parents set and hold rules. With warmth it makes the parenting style: authoritative "
+           "(warm and firm), authoritarian (cold and firm), permissive (warm, few rules) or neglectful.", 0.5, 0.2),
     Factor("household_speech", "family", "background", "Talk at home",
            "How many words a day are spoken around and to him. This is literally his training data.", 0.55, 0.2),
     Factor("sex", "family", "background", "Sex (0 female, 1 male)",
@@ -321,6 +324,9 @@ class FactorSet:
         return FactorSet(dict(self.values), dict(self.source), [dict(t) for t in self.timeline])
 
 
+LATE = {"parent_strictness"}
+
+
 def sample(seed: int, overrides: Optional[Dict[str, float]] = None,
            timeline: Optional[List[dict]] = None) -> FactorSet:
     """Seeds every factor. User overrides win; exposures not overridden are correlated with family status."""
@@ -336,12 +342,19 @@ def sample(seed: int, overrides: Optional[Dict[str, float]] = None,
         return min(1.0, max(0.0, x))
 
     for f in FAMILY:
+        if f.key in LATE:
+            continue
         if f.key in overrides:
             values[f.key], source[f.key] = clip(float(overrides[f.key])), "user"
         elif f.key == "sex":
             values[f.key], source[f.key] = float(rng.random() < 0.5), "seeded"
         else:
             values[f.key], source[f.key] = clip(rng.gauss(f.mean, f.sd)), "seeded"
+    # Factors added after round 2 draw from their own generator, so every older seed keeps the life it had.
+    late = random.Random(seed * 7919 + 101)
+    for f in FAMILY + EXPOSURES:
+        if f.key in LATE:
+            values[f.key], source[f.key] = (clip(float(overrides[f.key])), "user") if f.key in overrides                 else (clip(late.gauss(f.mean, f.sd)), "seeded")
     # Richer families talk and read more.
     if "parent_education" not in overrides:
         values["parent_education"] = clip(0.6 * values["parent_education"] + 0.4 * values["ses"])
