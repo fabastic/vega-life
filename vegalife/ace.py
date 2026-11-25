@@ -38,8 +38,17 @@ CATS: Dict[str, tuple] = {
                          {"household_friction": 0.05, "wealth": -0.02, "anxiety": 0.03}),
 }
 SEPARATION = "parental_separation"            # counted from family.py's "divorce" happening, not sampled here
-DEP_PER_ACE = 0.30                             # log-hazard per ACE: 4 ACEs about x3.3 depression hazard
-ALC_PER_ACE = 0.38                             # 4 ACEs about x4.6 alcohol-misuse hazard
+DEP_PER_ACE = 0.75                             # log-hazard per ACE, tuned so 4+ vs none gives an ever-depressed OR near 3
+ALC_PER_ACE = 0.38                             # log-hazard per ACE for alcohol misuse
+# Share of children by ACE score in this model (0, 1, 2, 3, 4, 5, 6+), measured on 400 lives; it matches BRFSS.
+SCORE_SHARE = (0.37, 0.215, 0.145, 0.13, 0.07, 0.04, 0.03)
+
+
+def _norm(per: float) -> float:
+    """log of the population-average hazard multiplier, so ACEs spread risk between people without raising the
+    calibrated average in mental.py: subtract it and the mean multiplier is 1."""
+    import math
+    return math.log(sum(w * math.exp(per * n) for n, w in enumerate(SCORE_SHARE)))
 
 
 def clip(x: float) -> float:
@@ -78,7 +87,7 @@ class Ace:
             if p.age >= m:
                 del self.plan[k]
                 _, text, d = CATS[k]
-                p.apply(d, fades=False)
+                p.apply(d, fades=True)          # the lasting part is in the score and its hazard
                 self.had.append(k)
                 p.note(text, -0.8, 0.85, key="ace", deltas=d)
 
@@ -90,7 +99,8 @@ class Ace:
         n = self.score
         if condition == "depression" and "parent_mental_illness" in self.had:
             n -= 1                       # mental.py's family_history already carries a parent's illness
-        return per * n
+        # relative to the average child: the base rates in mental.py were already calibrated on everyone
+        return per * n - _norm(per)
 
     def to_json(self) -> dict:
         return {"off": self.off, "score": self.score, "had": list(self.had), "partial": self.partial}
