@@ -61,3 +61,16 @@ def test_hiring_bias_slows_finding_work():
                 total += 22 <= p.years and p.s["employed"] < 0.5 and p.s["schooling"] < 0.5
         return total
     assert months_out(1.0) > months_out(0.0)
+
+
+def test_a_child_in_the_pandemic_loses_some_learning():
+    def academic_at_13(seed, by):
+        F = fx.sample(seed, {"birth_year": (by - 1950) / 60})      # birth year draws apart: same life otherwise
+        p = Person(F, seed, Circle(F, seed))
+        while p.alive and p.age < 13 * 12:
+            p.step_month(F)
+            p.happenings.clear()
+        return p.s["academic"]
+    hit = sum(academic_at_13(s, 2008) for s in range(12))
+    spared = sum(academic_at_13(s, 1990) for s in range(12))
+    assert hit < spared
