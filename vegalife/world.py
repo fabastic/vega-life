@@ -462,7 +462,7 @@ class Person:
         if 18 <= y < 66:
             # Background labour market: some work turns up without a scenario; jobs are also lost.
             if s["employed"] < 0.5 and r.random() < 0.01 * (0.3 + s["academic"] + 0.4 * s["credential"]) \
-                    * (1 - 0.5 * F["algorithmic_hiring"]) and s["schooling"] < 0.5:
+                    * (1 - 0.5 * F["algorithmic_hiring"]) * self.prejudice.callback(F) and s["schooling"] < 0.5:
                 s["employed"] = 1.0
                 self.note("finds work", 0.5, 0.5, key="work")
             elif s["employed"] > 0.5 and r.random() < 0.004 * (1 + F["skill_obsolescence"] * (y > 36)) \
