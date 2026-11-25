@@ -68,3 +68,9 @@ def test_depression_screen_is_in_range_and_rises_when_depressed():
     p.mind.active["depression"] = p.age
     p.s["mood"] = 0.1
     assert p.mind.phq9(p) >= 10 > base or p.mind.phq9(p) > base
+
+
+def test_abuse_at_home_teaches_people_are_not_safe():
+    p = Person(fx.sample(3), 3, Circle(fx.sample(3), 3))
+    moved = p.beliefs.evidence(p, "ace", -0.8, 0.85, "is hit at home")
+    assert moved["people_trustworthy"] < 0 and moved["self_worth"] < 0
