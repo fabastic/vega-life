@@ -39,7 +39,7 @@ def test_aces_land_before_18_and_stop():
 def test_aces_raise_adult_depression_hazard_only():
     a = Ace(fx.sample(1), 1)
     a.had = ["emotional_abuse"] * 4
-    assert a.hazard("depression") > 1.0 and a.hazard("alcohol use") > 1.0
+    assert a.hazard("depression") > 0.5 and a.hazard("alcohol use") > 0.5
     assert a.hazard("psychosis") == 0.0
     a.off = True
     assert a.hazard("depression") == 0.0

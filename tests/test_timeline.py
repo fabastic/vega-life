@@ -9,8 +9,8 @@ def test_recession_years_follow_the_nber_dates():
     assert recession(2009) == 1.0 and recession(2015) == 0.0 and recession(1981) > 0.5
 
 
-def test_birth_year_maps_onto_1950_to_2010():
-    assert birth_year(fx.sample(1, {"birth_year": 0.0})) == 1950
+def test_birth_year_maps_onto_1940_to_2010():
+    assert birth_year(fx.sample(1, {"birth_year": 0.0})) == 1940
     assert birth_year(fx.sample(1, {"birth_year": 1.0})) == 2010
 
 
@@ -26,7 +26,7 @@ def test_starting_work_in_a_recession_scars_pay_then_fades():
 
 
 def test_he_lives_through_dated_world_events():
-    F = fx.sample(4, {"birth_year": (1990 - 1950) / 60})
+    F = fx.sample(4, {"birth_year": (1990 - 1940) / 70})
     p = Person(F, 4, Circle(F, 4))
     seen = []
     while p.alive and p.age < 25 * 12:
@@ -65,7 +65,7 @@ def test_hiring_bias_slows_finding_work():
 
 def test_a_child_in_the_pandemic_loses_some_learning():
     def academic_at_13(seed, by):
-        F = fx.sample(seed, {"birth_year": (by - 1950) / 60})      # birth year draws apart: same life otherwise
+        F = fx.sample(seed, {"birth_year": (by - 1940) / 70})      # birth year draws apart: same life otherwise
         p = Person(F, seed, Circle(F, seed))
         while p.alive and p.age < 13 * 12:
             p.step_month(F)
@@ -77,8 +77,49 @@ def test_a_child_in_the_pandemic_loses_some_learning():
 
 
 def test_about_a_quarter_of_men_born_1944_to_1952_are_drafted():
-    men = [Timeline(fx.sample(s, {"sex": 1.0, "birth_year": 0.0})) for s in range(400)]
+    men = [Timeline(fx.sample(s, {"sex": 1.0, "birth_year": (1948 - 1940) / 70})) for s in range(400)]
     share = sum(t.drafted for t in men) / len(men)
     assert 0.15 < share < 0.35, share
-    assert not any(Timeline(fx.sample(s, {"sex": 0.0, "birth_year": 0.0})).drafted for s in range(50))
+    assert not any(Timeline(fx.sample(s, {"sex": 0.0, "birth_year": (1948 - 1940) / 70})).drafted for s in range(50))
     assert not any(Timeline(fx.sample(s, {"sex": 1.0, "birth_year": 0.5})).drafted for s in range(50))
+
+
+def test_any_way_of_losing_work_records_the_scar_and_rehire_resets_tenure():
+    F = fx.sample(1)
+    p = Person(F, 1, Circle(F, 1))
+    t = p.timeline
+    p.age = 30 * 12
+    p.s["employed"] = 1.0
+    t.step(p, F)
+    assert t.job_since == 30 * 12
+    p.age += 8 * 12
+    p.s["employed"] = 0.0                      # e.g. prison or illness, not the layoff line
+    t.step(p, F)
+    assert t.losses and abs(t.losses[-1][1] - 0.25) < 1e-9
+    p.age += 12
+    p.s["employed"] = 1.0
+    t.step(p, F)
+    assert t.job_since == 39 * 12
+
+
+def test_an_older_saved_timeline_resumes():
+    import pickle
+    t = Timeline(fx.sample(1))
+    state = dict(t.__dict__)
+    for k in ("job_since", "losses", "drafted", "served_at", "was_employed"):
+        state.pop(k)
+    old = Timeline.__new__(Timeline)
+    old.__setstate__(state)
+    assert old.job_scar(100) == 0.0 and old.drafted is False
+    assert pickle.loads(pickle.dumps(old)).losses == []
+
+
+def test_babies_still_get_world_events_without_an_age():
+    F = fx.sample(4, {"birth_year": (2006 - 1940) / 70})
+    p = Person(F, 4, Circle(F, 4))
+    seen = []
+    while p.age < 5 * 12:
+        p.step_month(F)
+        seen += [h["text"] for h in p.happenings if h["key"] == "world"]
+        p.happenings.clear()
+    assert any("smartphones" in s and "too early" in s for s in seen)
