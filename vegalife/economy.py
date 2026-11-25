@@ -102,12 +102,18 @@ class Economy:
         pay, *_ = FIELDS[self.field]
         tier = self.tier - (1 if p.age < self.deskilled_until else 0)
         area = p.surroundings.income_shift() if hasattr(p, "surroundings") else 0.0     # where he grew up (Chetty)
-        return clip((0.22 + 0.17 * max(0, tier)) * pay + 0.04 * p.work.level + area)
+        pay_now = (0.22 + 0.17 * max(0, tier)) * pay + 0.04 * p.work.level + area
+        tl = getattr(p, "timeline", None)                  # starting work in a recession (timeline.py)
+        if tl is not None:
+            pay_now *= 1 - tl.scar(tl.born + p.age // 12)
+        return clip(pay_now)
 
     def layoff_mult(self, F: FactorSet) -> float:
         if self.field is None:
             return 1.0
-        return 1.0 + FIELDS[self.field][1] * F["ai_entry_automation"] - 0.08 * (self.tier or 0)
+        from .timeline import recession, year_of
+        boom_bust = 1.0 + 1.2 * recession(year_of(F, getattr(self, "age_now", 0)))   # layoffs rise in a recession (NBER dates)
+        return (1.0 + FIELDS[self.field][1] * F["ai_entry_automation"] - 0.08 * (self.tier or 0)) * boom_bust
 
     def burnout_mult(self) -> float:
         return FIELDS[self.field][2] if self.field else 1.0
@@ -131,6 +137,7 @@ class Economy:
     # ------------------------------------------------------------------ the month
     def step(self, p, F: FactorSet) -> List[dict]:
         r, s, y, m = self.rng, p.s, p.years, p.age
+        self.age_now = m
         out: List[dict] = []
         employed = s["employed"] > 0.5
         # --- an occupation when work begins ------------------------------------------------------------------------
