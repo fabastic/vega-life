@@ -62,6 +62,8 @@ FAMILY: List[Factor] = [
     Factor("parent_strictness", "family", "background", "Parents' strictness",
            "How firmly his parents set and hold rules. With warmth it makes the parenting style: authoritative "
            "(warm and firm), authoritarian (cold and firm), permissive (warm, few rules) or neglectful.", 0.5, 0.2),
+    Factor("birth_year", "family", "background", "Year of birth",
+           "Which recessions, technology and world events he meets, and at what age.", 0.6, 0.25),
     Factor("household_speech", "family", "background", "Talk at home",
            "How many words a day are spoken around and to him. This is literally his training data.", 0.55, 0.2),
     Factor("sex", "family", "background", "Sex (0 female, 1 male)",
@@ -324,7 +326,7 @@ class FactorSet:
         return FactorSet(dict(self.values), dict(self.source), [dict(t) for t in self.timeline])
 
 
-LATE = {"parent_strictness"}
+LATE = {"parent_strictness", "birth_year"}
 
 
 def sample(seed: int, overrides: Optional[Dict[str, float]] = None,
@@ -389,6 +391,7 @@ UNITS: Dict[str, dict] = {
                                                      [1, "university, to 23"]]},
     "school_ai_policy": {"kind": "choice", "options": [[0, "banned"], [0.5, "some use"], [1, "used openly"]]},
     "ses": {"kind": "scale", "lo": 1, "hi": 99, "step": 1, "unit": "income percentile"},
+    "birth_year": {"kind": "scale", "lo": 1950, "hi": 2010, "step": 1, "unit": ""},
     "household_speech": {"kind": "scale", "lo": 5000, "hi": 30000, "step": 500, "unit": "words a day around him"},
     "local_pollution": {"kind": "scale", "lo": 5, "hi": 35, "step": 1, "unit": "µg/m³ PM2.5"},
     "screen_time": {"kind": "scale", "lo": 0, "hi": 8, "step": 0.5, "unit": "hours of screens a day"},
