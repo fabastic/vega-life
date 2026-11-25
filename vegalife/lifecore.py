@@ -15,7 +15,7 @@ from . import brainmap as bmod
 from .factors import stage_of
 from .story import lane_of
 
-EVENT_DOMAIN = {"ace": "safety", "friend": "social", "bullied": "social", "home": "social", "work": "socioeconomic",
+EVENT_DOMAIN = {"ace": "safety", "world": "technological", "recession": "socioeconomic", "war": "safety", "friend": "social", "bullied": "social", "home": "social", "work": "socioeconomic",
                 "move": "socioeconomic", "study": "socioeconomic", "disaster": "socioeconomic", "illness": "biological",
                 "consequence": "social", "death": "social", "divorce": "social", "breakup": "social",
                 "dementia": "social", "partner": "social", "child": "social", "joy": "social", "retire": "socioeconomic",
