@@ -33,7 +33,7 @@ KEY_LANE = {
     "illness": "body", "health": "body", "injury": "body", "hormone": "body", "puberty": "body",
     "mental": "mind", "recover": "mind", "self_harm": "mind", "regret": "mind", "dream": "mind",
     "prejudice": "world", "disaster": "world", "move": "world", "war": "world", "pandemic": "world",
-    "prison": "world", "online": "world", "body": "body",
+    "prison": "world", "online": "world", "body": "body", "world": "world", "recession": "work", "ace": "family",
 }
 GENERIC = {"joy", "sorrow"}                  # small everyday moments: placed by their words, else in the mind lane
 WORDS = [("love", ("falls in love", "marries", "moves in with", "partner", "divorce", "breaks up", "kiss", "date")),
